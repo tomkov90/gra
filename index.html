@@ -5,30 +5,28 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no" />
 <title>Łapanie Pluskwy</title>
 <style>
-  :root{--ui-bg:#1f1f1f;--ui-fg:#fff;--accent:#4ade80;}
-  *{box-sizing:border-box;-webkit-tap-highlight-color:transparent;}
-  html,body{margin:0;height:100%;background:#111;color:var(--ui-fg);font-family:system-ui,Segoe UI,Roboto,Arial}
-  body{overflow:hidden;}
+  body,html{margin:0;height:100%;background:#111;color:#fff;font-family:sans-serif;overflow:hidden}
   .screen{display:none;height:100%;width:100%;}
   .active{display:flex;align-items:center;justify-content:center;}
-  #menu{flex-direction:column;gap:16px;padding:24px;text-align:center;background:#151515;}
+  #menu{flex-direction:column;gap:16px;text-align:center}
   .btn{background:#2a2a2a;color:#fff;border:0;border-radius:14px;padding:14px 18px;font-size:18px;cursor:pointer}
   .btn:active{transform:scale(.98)}
-  #leaderboard{background:#191919;border:1px solid #2a2a2a;border-radius:16px;padding:12px 16px;width:min(520px,92vw);text-align:left}
+  #leaderboard{background:#191919;border:1px solid #2a2a2a;border-radius:16px;padding:12px 16px;width:min(520px,92vw);text-align:left;margin-top:12px}
   #leaderboard h2{margin:6px 0 10px 0;font-size:20px}
   .row{display:flex;justify-content:space-between;padding:6px 0;font-size:18px}
-  .lead{margin-top:8px;font-weight:600;color:var(--accent)}
-  #game{position:relative;background:#101010}
+  .lead{margin-top:8px;font-weight:600;color:#4ade80}
+  #game{position:relative}
   #gameArea{position:relative;width:100vw;height:100vh;overflow:hidden;background:radial-gradient(ellipse at top,#181818,#0e0e0e)}
   #score,#timer{position:absolute;top:8px;padding:8px 12px;border-radius:12px;background:rgba(0,0,0,.35);font-weight:700;font-size:16px;border:1px solid #2a2a2a}
   #score{left:10px;}#timer{right:10px;}
-  #character{position:absolute;bottom:20px;width:56px;height:56px;font-size:40px;line-height:56px;text-align:center;user-select:none;touch-action:none;filter:drop-shadow(0 6px 10px rgba(0,0,0,.45))}
-  .bug{position:absolute;width:34px;height:34px;font-size:28px;text-align:center;pointer-events:none}
+  #character{position:absolute;bottom:20px;width:56px;height:56px;user-select:none;touch-action:none}
+  .bug{position:absolute;width:34px;height:34px;font-size:28px;pointer-events:none}
   #touchControls{position:absolute;bottom:10px;left:0;right:0;display:flex;gap:10px;justify-content:center}
-  .ctrl{flex:0 0 44vw;max-width:440px;height:64px;border-radius:16px;border:1px solid #2e2e2e;background:rgba(30,30,30,.65);backdrop-filter:saturate(130%) blur(4px);display:flex;align-items:center;justify-content:center;font-size:26px;color:#ddd;user-select:none}
+  .ctrl{flex:0 0 44vw;height:64px;border-radius:16px;border:1px solid #2e2e2e;background:rgba(30,30,30,.65);display:flex;align-items:center;justify-content:center;font-size:26px;color:#ddd;user-select:none}
   .ctrl:active{background:rgba(50,50,50,.75)}
   #end{flex-direction:column;gap:16px;text-align:center;background:#131313;padding:24px}
   #endCard{background:#191919;border:1px solid #2a2a2a;border-radius:16px;padding:16px 20px;width:min(520px,92vw)}
+  #sadFace{display:none}
 </style>
 </head>
 <body>
@@ -39,13 +37,13 @@
     <h1>Łap Pluskwy!</h1>
     <p>Wybierz swoją postać i łap 🐞 przez 20 sekund.</p>
     <div style="display:flex;gap:10px;justify-content:center;flex-wrap:wrap;margin:12px 0 18px">
-      <button class="btn" onclick="startGame('MURAN')">MURAN 🍔</button>
-      <button class="btn" onclick="startGame('GEBELS')">GEBELS 🧔</button>
+      <button class="btn" onclick="startGame('MURAN')">MURAN</button>
+      <button class="btn" onclick="startGame('GEBELS')">GEBELS</button>
     </div>
     <div id="leaderboard">
       <h2>Tablica wyników</h2>
-      <div class="row"><span>MURAN 🍔</span><span id="muranScore">0</span></div>
-      <div class="row"><span>GEBELS 🧔</span><span id="gebelsScore">0</span></div>
+      <div class="row"><span>MURAN</span><span id="muranScore">0</span></div>
+      <div class="row"><span>GEBELS</span><span id="gebelsScore">0</span></div>
       <div id="leaderMessage" class="lead">Zagraj pierwszą rundę!</div>
     </div>
   </div>
@@ -56,7 +54,7 @@
   <div id="gameArea">
     <div id="score">Punkty: 0</div>
     <div id="timer">20s</div>
-    <div id="character">🍔</div>
+    <div id="character"></div>
 
     <!-- Sterowanie dotykowe -->
     <div id="touchControls">
@@ -71,7 +69,7 @@
   <div id="endCard">
     <h2>Koniec rundy!</h2>
     <p id="endMessage"></p>
-    <div id="sadFace" style="font-size:48px;margin:12px 0;display:none">🥴🐞🐞</div>
+    <div id="sadFace"></div>
     <div style="display:flex;gap:10px;justify-content:center;margin-top:8px">
       <button class="btn" onclick="goToMenu()">Powrót do menu</button>
       <button class="btn" onclick="restart()">Jeszcze raz</button>
@@ -80,246 +78,259 @@
 </section>
 
 <script>
-  // --- Helper do pobierania elementów
-  const $ = (id) => document.getElementById(id);
+/* ========== UTIL / STATE ========== */
+const $=id=>document.getElementById(id);
+const LS_KEY="pluskwy_board_v4";
+let leaderboard=loadBoard(),activePlayer="MURAN",score=0,bugs=[],rafId=null,startTime=0,lastFrame=0,spawnAcc=0;
+const ROUND_MS=20000,CHAR_W=56,CHAR_H=56,BUG_W=34,BUG_H=34,BASE_FALL=180,SPAWN_EVERY=700,CHAR_SPEED=360;
+let holdingLeft=false,holdingRight=false,dragging=false,dragOffsetX=0;
 
-  // --- Stałe i stan
-  const LS_KEY = "pluskwy_board_v2";
-  const ROUND_MS   = 20000;
-  const CHAR_W     = 56, CHAR_H = 56;
-  const BUG_W      = 34, BUG_H  = 34;
-  const BASE_FALL  = 180;      // px/s
-  const SPAWN_EVERY= 700;      // ms (będzie przyspieszać)
-  const CHAR_SPEED = 360;      // px/s (przy przyciskach)
+/* DOM */
+const screens={menu:$('menu'),game:$('game'),end:$('end')};
+const gameArea=$('gameArea'),character=$('character'),scoreEl=$('score'),timerEl=$('timer'),
+      endMessage=$('endMessage'),sadFace=$('sadFace'),
+      muranScoreEl=$('muranScore'),gebelsScoreEl=$('gebelsScore'),leaderMsgEl=$('leaderMessage'),
+      btnLeft=$('btnLeft'),btnRight=$('btnRight');
 
-  let leaderboard = loadBoard();
-  let activePlayer = "MURAN";
-  let score = 0;
-  let bugs = [];
-  let rafId = null;
-  let startTime = 0;
-  let lastFrame = 0;
-  let spawnAcc = 0;
-  let holdingLeft = false, holdingRight = false;
-  let dragging = false, dragOffsetX = 0;
+/* Init */
+updateBoardUI();
 
-  // --- Elementy DOM
-  const screens = { menu: $('menu'), game: $('game'), end: $('end') };
-  const gameArea = $('gameArea');
-  const character = $('character');
-  const scoreEl = $('score');
-  const timerEl = $('timer');
-  const endMessage = $('endMessage');
-  const sadFace = $('sadFace');
-  const muranScoreEl = $('muranScore');
-  const gebelsScoreEl = $('gebelsScore');
-  const leaderMsgEl = $('leaderMessage');
-  const btnLeft = $('btnLeft');
-  const btnRight = $('btnRight');
-
-  // Inicjalizacja tablicy wyników
-  updateBoardUI();
-
-  // --- Start gry
-  function startGame(player){
-    activePlayer = player;
-    switchScreen('game');
-    character.textContent = (player === 'MURAN') ? '🍔' : '🧔';
-    character.style.left = ((gameArea.clientWidth - CHAR_W) / 2) + 'px';
-
-    // Reset rundy
-    for (const b of bugs) b.el.remove();
-    bugs.length = 0;
-    score = 0;
-    scoreEl.textContent = 'Punkty: 0';
-    timerEl.textContent = (ROUND_MS/1000)+'s';
-    spawnAcc = 0;
-
-    startTime = performance.now();
-    lastFrame = startTime;
-
-    cancelAnimationFrame(rafId);
-    rafId = requestAnimationFrame(loop);
+/* ========== AVATARS (OK) ========== */
+function avatarNormal(player){
+  if(player==="MURAN"){
+    return `
+      <svg viewBox="0 0 100 100" width="56" height="56" aria-label="MURAN">
+        <circle cx="50" cy="50" r="45" fill="#f4c27a" stroke="#333" stroke-width="3"/>
+        <rect x="10" y="30" width="80" height="12" fill="#d92323"/>
+        <circle cx="35" cy="50" r="6" fill="#000"/>
+        <circle cx="65" cy="50" r="6" fill="#000"/>
+        <path d="M35 70 Q50 80 65 70" stroke="#000" stroke-width="4" fill="none"/>
+      </svg>`;
   }
+  // GEBELS
+  return `
+    <svg viewBox="0 0 100 100" width="56" height="56" aria-label="GEBELS">
+      <circle cx="50" cy="50" r="45" fill="#f4c27a" stroke="#333" stroke-width="3"/>
+      <rect x="25" y="40" width="20" height="8" fill="#000"/>
+      <rect x="55" y="40" width="20" height="8" fill="#000"/>
+      <line x1="45" y1="44" x2="55" y2="44" stroke="#000" stroke-width="2"/>
+      <rect x="45" y="65" width="10" height="4" fill="#000"/>
+      <path d="M35 75 Q50 85 65 75" stroke="#000" stroke-width="3" fill="none"/>
+    </svg>`;
+}
 
-  // --- Pętla gry
-  function loop(now){
-    const dt = (now - lastFrame) / 1000; // sekundy
-    lastFrame = now;
+function avatarSad(player){
+  if(player==="MURAN"){
+    return `
+      <svg viewBox="0 0 120 120" width="88" height="88" aria-label="MURAN pogryziony">
+        <defs>
+          <radialGradient id="bruise" cx="50%" cy="50%" r="50%">
+            <stop offset="0%" stop-color="#6b2d2d" stop-opacity="0.9"/>
+            <stop offset="100%" stop-color="#6b2d2d" stop-opacity="0.0"/>
+          </radialGradient>
+        </defs>
+        <circle cx="60" cy="60" r="52" fill="#f4c27a" stroke="#333" stroke-width="3"/>
+        <rect x="14" y="30" width="92" height="14" fill="#d92323"/>
+        <!-- oczy zapłakane -->
+        <circle cx="44" cy="58" r="6" fill="#000"/>
+        <circle cx="76" cy="58" r="6" fill="#000"/>
+        <path d="M38 86 Q60 76 82 86" stroke="#000" stroke-width="5" fill="none"/> <!-- smutny uśmiech odwrotnie -->
+        <!-- ślady pogryzień -->
+        <circle cx="35" cy="80" r="10" fill="url(#bruise)"/>
+        <circle cx="85" cy="72" r="8" fill="url(#bruise)"/>
+        <circle cx="70" cy="40" r="7" fill="url(#bruise)"/>
+        <!-- malutkie ranki -->
+        <path d="M28 70 l8 6" stroke="#5a0f0f" stroke-width="2"/>
+        <path d="M92 60 l-7 6" stroke="#5a0f0f" stroke-width="2"/>
+        <!-- pluskwy -->
+        <text x="28" y="45" font-size="16">🐞</text>
+        <text x="90" y="55" font-size="16">🐞</text>
+        <text x="60" y="95" font-size="16">🐞</text>
+      </svg>`;
+  }
+  // GEBELS sad
+  return `
+    <svg viewBox="0 0 120 120" width="88" height="88" aria-label="GEBELS pogryziony">
+      <defs>
+        <radialGradient id="bruise2" cx="50%" cy="50%" r="50%">
+          <stop offset="0%" stop-color="#6b2d2d" stop-opacity="0.9"/>
+          <stop offset="100%" stop-color="#6b2d2d" stop-opacity="0.0"/>
+        </radialGradient>
+      </defs>
+      <circle cx="60" cy="60" r="52" fill="#f4c27a" stroke="#333" stroke-width="3"/>
+      <rect x="30" y="43" width="22" height="9" fill="#000"/>
+      <rect x="68" y="43" width="22" height="9" fill="#000"/>
+      <line x1="52" y1="47" x2="68" y2="47" stroke="#000" stroke-width="2"/>
+      <rect x="54" y="72" width="12" height="5" fill="#000"/> <!-- wąsik -->
+      <!-- smutny łuk -->
+      <path d="M40 90 Q60 80 80 90" stroke="#000" stroke-width="4" fill="none"/>
+      <!-- pogryzienia -->
+      <circle cx="38" cy="78" r="9" fill="url(#bruise2)"/>
+      <circle cx="82" cy="66" r="7" fill="url(#bruise2)"/>
+      <circle cx="65" cy="36" r="6" fill="url(#bruise2)"/>
+      <path d="M33 64 l7 5" stroke="#5a0f0f" stroke-width="2"/>
+      <path d="M90 54 l-7 6" stroke="#5a0f0f" stroke-width="2"/>
+      <!-- pluskwy -->
+      <text x="26" y="40" font-size="16">🐞</text>
+      <text x="88" y="58" font-size="16">🐞</text>
+      <text x="60" y="98" font-size="16">🐞</text>
+    </svg>`;
+}
 
-    // Ruch postaci klawiszami / przyciskami
-    let x = parseFloat(character.style.left || "0");
-    if (holdingLeft)  x -= CHAR_SPEED * dt;
-    if (holdingRight) x += CHAR_SPEED * dt;
-    x = clamp(x, 0, gameArea.clientWidth - CHAR_W);
-    character.style.left = x + 'px';
+/* ========== GAME ========== */
+function setAvatar(player){ character.innerHTML = avatarNormal(player); }
 
-    const elapsed = now - startTime;
+function startGame(player){
+  activePlayer=player;
+  switchScreen('game');
+  setAvatar(player);
+  character.style.left=(gameArea.clientWidth-CHAR_W)/2+"px";
+  score=0;scoreEl.textContent="Punkty: 0";timerEl.textContent=(ROUND_MS/1000)+"s";
+  for(const b of bugs)b.el.remove();bugs.length=0;spawnAcc=0;
+  startTime=performance.now();lastFrame=startTime;
+  cancelAnimationFrame(rafId);rafId=requestAnimationFrame(loop);
+}
 
-    // Spawn pluskiew (coraz szybciej)
-    spawnAcc += dt * 1000; // liczymy w ms
-    const spawnInterval = Math.max(280, SPAWN_EVERY - elapsed * 0.25);
-    if (elapsed < ROUND_MS && spawnAcc >= spawnInterval) {
-      spawnBug();
-      spawnAcc = 0;
+function loop(now){
+  const dt=(now-lastFrame)/1000;lastFrame=now;
+  let x=parseFloat(character.style.left||"0");
+  if(holdingLeft)x-=CHAR_SPEED*dt;
+  if(holdingRight)x+=CHAR_SPEED*dt;
+  x=Math.max(0,Math.min(x,gameArea.clientWidth-CHAR_W));
+  character.style.left=x+"px";
+
+  const elapsed=now-startTime;
+  // spawn
+  spawnAcc+=dt*1000;
+  const spawnInterval=Math.max(280,SPAWN_EVERY-elapsed*0.25);
+  if(elapsed<ROUND_MS && spawnAcc>=spawnInterval){ spawnBug(); spawnAcc=0; }
+
+  // update bugs
+  const charY=gameArea.clientHeight-CHAR_H-20;
+  for(let i=bugs.length-1;i>=0;i--){
+    const b=bugs[i];
+    b.y+=b.vy*dt;
+    b.el.style.transform=`translate(${b.x}px,${b.y}px)`;
+    if(collides(b.x,b.y,BUG_W,BUG_H,x,charY,CHAR_W,CHAR_H)){
+      addScore(1);
+      b.el.remove(); bugs.splice(i,1);
+      if(navigator.vibrate) try{navigator.vibrate(80);}catch(_){}
+      continue;
     }
-
-    // Update pluskiew
-    const charY = gameArea.clientHeight - CHAR_H - 20;
-    for (let i = bugs.length - 1; i >= 0; i--) {
-      const b = bugs[i];
-      b.y += b.vy * dt;
-      b.el.style.transform = `translate(${b.x}px, ${b.y}px)`;
-
-      // Kolizja
-      if (collides(b.x, b.y, BUG_W, BUG_H, x, charY, CHAR_W, CHAR_H)) {
-        addScore(1);
-        b.el.remove();
-        bugs.splice(i, 1);
-        // Wibracja (jeśli dozwolona przez przeglądarkę / po interakcji)
-        if (navigator.vibrate) { try { navigator.vibrate(80); } catch(_){} }
-        continue;
-      }
-
-      // Poza ekran
-      if (b.y > gameArea.clientHeight) {
-        b.el.remove();
-        bugs.splice(i, 1);
-      }
-    }
-
-    // Timer
-    const leftMs = Math.max(0, ROUND_MS - elapsed);
-    timerEl.textContent = Math.ceil(leftMs / 1000) + 's';
-
-    if (elapsed >= ROUND_MS) {
-      endGame();
-      return;
-    }
-
-    rafId = requestAnimationFrame(loop);
+    if(b.y>gameArea.clientHeight){ b.el.remove(); bugs.splice(i,1); }
   }
 
-  // --- Tworzenie pluskwy
-  function spawnBug(){
-    const el = document.createElement('div');
-    el.className = 'bug';
-    el.textContent = '🐞';
-    const x = Math.random() * (gameArea.clientWidth - BUG_W);
-    const y = -BUG_H;
-    const vy = BASE_FALL + Math.random() * 120; // px/s
-    el.style.transform = `translate(${x}px, ${y}px)`;
-    gameArea.appendChild(el);
-    bugs.push({ x, y, vy, el });
-  }
+  // timer
+  const leftMs=Math.max(0,ROUND_MS-elapsed);
+  timerEl.textContent=Math.ceil(leftMs/1000)+"s";
+  if(elapsed>=ROUND_MS){ endGame(); return; }
 
-  // --- Punkty
-  function addScore(n){
-    score += n;
-    scoreEl.textContent = 'Punkty: ' + score;
-  }
+  rafId=requestAnimationFrame(loop);
+}
 
-  // --- Koniec gry
-  function endGame(){
-    cancelAnimationFrame(rafId);
-    for (const b of bugs) b.el.remove();
-    bugs.length = 0;
+function spawnBug(){
+  const el=document.createElement('div');
+  el.className='bug'; el.textContent='🐞';
+  const x=Math.random()*(gameArea.clientWidth-BUG_W);
+  const y=-BUG_H;
+  const vy=BASE_FALL+Math.random()*120;
+  el.style.transform=`translate(${x}px,${y}px)`;
+  gameArea.appendChild(el);
+  bugs.push({x,y,vy,el});
+}
 
-    // Zapis do tablicy wyników
-    leaderboard[activePlayer] += score;
-    saveBoard();
-    updateBoardUI();
+function addScore(n){ score+=n; scoreEl.textContent="Punkty: "+score; }
 
-    endMessage.textContent = `${activePlayer} złapał ${score} pluskiew!`;
-    sadFace.style.display = 'block'; // smutna, pogryziona postać
-    switchScreen('end');
-  }
+function endGame(){
+  cancelAnimationFrame(rafId);
+  for(const b of bugs) b.el.remove();
+  bugs.length=0;
 
-  // --- Przełączanie ekranów
-  function switchScreen(id){
-    screens.menu.classList.remove('active');
-    screens.game.classList.remove('active');
-    screens.end.classList.remove('active');
-    screens[id].classList.add('active');
-    if (id !== 'end') sadFace.style.display = 'none';
-  }
-  function goToMenu(){ switchScreen('menu'); }
-  function restart(){ startGame(activePlayer); }
+  leaderboard[activePlayer]+=score;
+  saveBoard(); updateBoardUI();
 
-  // --- Tablica wyników
-  function updateBoardUI(){
-    muranScoreEl.textContent  = leaderboard.MURAN || 0;
-    gebelsScoreEl.textContent = leaderboard.GEBELS || 0;
-    leaderMsgEl.textContent =
-      (leaderboard.MURAN > leaderboard.GEBELS) ? '🍔 MURAN prowadzi!' :
-      (leaderboard.GEBELS > leaderboard.MURAN) ? '🧔 GEBELS prowadzi!' :
-      'Remis!';
-  }
+  endMessage.textContent=`${activePlayer} złapał ${score} pluskiew!`;
+  sadFace.innerHTML = avatarSad(activePlayer);
+  sadFace.style.display='block';
+  switchScreen('end');
+}
 
-  function loadBoard(){
-    try{
-      const raw = localStorage.getItem(LS_KEY);
-      if (!raw) return { MURAN: 0, GEBELS: 0 };
-      const obj = JSON.parse(raw);
-      return { MURAN: obj.MURAN || 0, GEBELS: obj.GEBELS || 0 };
-    }catch(e){
-      return { MURAN: 0, GEBELS: 0 };
-    }
-  }
-  function saveBoard(){ localStorage.setItem(LS_KEY, JSON.stringify(leaderboard)); }
+/* ========== SCREENS / UI ========== */
+function switchScreen(id){
+  screens.menu.classList.remove('active');
+  screens.game.classList.remove('active');
+  screens.end.classList.remove('active');
+  screens[id].classList.add('active');
+  if(id!=='end'){ sadFace.style.display='none'; sadFace.innerHTML=''; }
+}
+function goToMenu(){ switchScreen('menu'); }
+function restart(){ startGame(activePlayer); }
 
-  // --- Narzędzia
-  function collides(ax,ay,aw,ah, bx,by,bw,bh){
-    return !(ay+ah < by || ay > by+bh || ax+aw < bx || ax > bx+bw);
-  }
-  function clamp(v,min,max){ return Math.max(min, Math.min(max, v)); }
+function updateBoardUI(){
+  muranScoreEl.textContent=leaderboard.MURAN||0;
+  gebelsScoreEl.textContent=leaderboard.GEBELS||0;
+  leaderMsgEl.textContent=(leaderboard.MURAN>leaderboard.GEBELS)
+    ? "MURAN prowadzi!"
+    : (leaderboard.GEBELS>leaderboard.MURAN)
+      ? "GEBELS prowadzi!"
+      : "Remis!";
+}
 
-  // --- Sterowanie DOTYKIEM: przeciąganie postaci
-  character.addEventListener('pointerdown', (e)=>{
-    dragging = true;
-    character.setPointerCapture(e.pointerId);
-    const rect = character.getBoundingClientRect();
-    dragOffsetX = e.clientX - rect.left;
-    e.preventDefault();
-  }, {passive:false});
-  character.addEventListener('pointermove', (e)=>{
-    if (!dragging) return;
-    const areaRect = gameArea.getBoundingClientRect();
-    let x = e.clientX - areaRect.left - dragOffsetX;
-    x = clamp(x, 0, gameArea.clientWidth - CHAR_W);
-    character.style.left = x + 'px';
-    e.preventDefault();
-  }, {passive:false});
-  character.addEventListener('pointerup', ()=>{ dragging = false; });
+/* ========== STORAGE ========== */
+function loadBoard(){
+  try{
+    const raw=localStorage.getItem(LS_KEY);
+    if(!raw) return {MURAN:0,GEBELS:0};
+    const obj=JSON.parse(raw);
+    return {MURAN:obj.MURAN||0,GEBELS:obj.GEBELS||0};
+  }catch(e){ return {MURAN:0,GEBELS:0}; }
+}
+function saveBoard(){ localStorage.setItem(LS_KEY, JSON.stringify(leaderboard)); }
 
-  // --- Sterowanie DOTYKOWE: przyciski ◀️ ▶️
-  const press = (dir)=> (e)=>{ if(dir<0) holdingLeft=true; else holdingRight=true; e.preventDefault(); };
-  const release = (dir)=> ()=>{ if(dir<0) holdingLeft=false; else holdingRight=false; };
-  btnLeft.addEventListener('pointerdown', press(-1), {passive:false});
-  btnRight.addEventListener('pointerdown', press(1),  {passive:false});
-  btnLeft.addEventListener('pointerup',   release(-1));
-  btnRight.addEventListener('pointerup',  release(1));
-  btnLeft.addEventListener('pointercancel', release(-1));
-  btnRight.addEventListener('pointercancel', release(1));
-  btnLeft.addEventListener('pointerleave', release(-1));
-  btnRight.addEventListener('pointerleave', release(1));
+/* ========== HELPERS / INPUT ========== */
+function collides(ax,ay,aw,ah,bx,by,bw,bh){
+  return !(ay+ah<by || ay>by+bh || ax+aw<bx || ax>bx+bw);
+}
 
-  // --- Klawiatura (PC)
-  window.addEventListener('keydown', (e)=>{
-    if(e.key==='ArrowLeft')  holdingLeft = true;
-    if(e.key==='ArrowRight') holdingRight = true;
-  });
-  window.addEventListener('keyup', (e)=>{
-    if(e.key==='ArrowLeft')  holdingLeft = false;
-    if(e.key==='ArrowRight') holdingRight = false;
-  });
+btnLeft.addEventListener('pointerdown',e=>{holdingLeft=true; e.preventDefault();},{passive:false});
+btnRight.addEventListener('pointerdown',e=>{holdingRight=true; e.preventDefault();},{passive:false});
+btnLeft.addEventListener('pointerup',()=>holdingLeft=false);
+btnRight.addEventListener('pointerup',()=>holdingRight=false);
+btnLeft.addEventListener('pointerleave',()=>holdingLeft=false);
+btnRight.addEventListener('pointerleave',()=>holdingRight=false);
 
-  // --- Zmiana rozmiaru (obrót ekranu itp.)
-  window.addEventListener('resize', ()=>{
-    let x = parseFloat(character.style.left || "0");
-    x = clamp(x, 0, gameArea.clientWidth - CHAR_W);
-    character.style.left = x + 'px';
-  });
+window.addEventListener('keydown',e=>{
+  if(e.key==='ArrowLeft') holdingLeft=true;
+  if(e.key==='ArrowRight') holdingRight=true;
+});
+window.addEventListener('keyup',e=>{
+  if(e.key==='ArrowLeft') holdingLeft=false;
+  if(e.key==='ArrowRight') holdingRight=false;
+});
+
+// przeciąganie postaci
+character.addEventListener('pointerdown',(e)=>{
+  dragging=true;
+  character.setPointerCapture(e.pointerId);
+  const rect=character.getBoundingClientRect();
+  dragOffsetX=e.clientX-rect.left;
+  e.preventDefault();
+},{passive:false});
+character.addEventListener('pointermove',(e)=>{
+  if(!dragging) return;
+  const areaRect=gameArea.getBoundingClientRect();
+  let x=e.clientX-areaRect.left-dragOffsetX;
+  x=Math.max(0,Math.min(x,gameArea.clientWidth-CHAR_W));
+  character.style.left=x+"px";
+},{passive:false});
+character.addEventListener('pointerup',()=>{dragging=false;});
+
+// resize
+window.addEventListener('resize',()=>{
+  let x=parseFloat(character.style.left||"0");
+  x=Math.max(0,Math.min(x,gameArea.clientWidth-CHAR_W));
+  character.style.left=x+"px";
+});
 </script>
 </body>
 </html>
