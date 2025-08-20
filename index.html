@@ -1,185 +1,126 @@
 <!DOCTYPE html>
 <html lang="pl">
 <head>
-<meta charset="UTF-8">
-<title>Łapanie Pluskiew</title>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no" />
+<title>Łapanie Pluskwy</title>
 <style>
-  body {
-    margin: 0;
-    font-family: Arial, sans-serif;
-    background: #222;
-    color: white;
-    overflow: hidden;
-    text-align: center;
-  }
-  #menu, #game, #end {
-    display: none;
-  }
-  #menu.active, #game.active, #end.active {
-    display: block;
-  }
-  #character {
-    position: absolute;
-    bottom: 20px;
-    left: 50%;
-    transform: translateX(-50%);
-    font-size: 40px;
-  }
-  .pluskwa {
-    position: absolute;
-    font-size: 30px;
-  }
-  #score {
-    position: absolute;
-    top: 10px;
-    left: 10px;
-    font-size: 20px;
-  }
-  #leaderboard {
-    margin-top: 20px;
-    font-size: 18px;
-  }
-  button {
-    padding: 10px 20px;
-    font-size: 18px;
-    margin: 10px;
-    cursor: pointer;
-  }
+  :root{--ui-bg:#1f1f1f;--ui-fg:#fff;--accent:#4ade80;}
+  *{box-sizing:border-box;-webkit-tap-highlight-color:transparent;}
+  html,body{margin:0;height:100%;background:#111;color:var(--ui-fg);font-family:system-ui,Segoe UI,Roboto,Arial}
+  body{overflow:hidden;}
+  .screen{display:none;height:100%;width:100%;}
+  .active{display:flex;align-items:center;justify-content:center;}
+  #menu{flex-direction:column;gap:16px;padding:24px;text-align:center;background:#151515;}
+  .btn{background:#2a2a2a;color:#fff;border:0;border-radius:14px;padding:14px 18px;font-size:18px}
+  .btn:active{transform:scale(.98)}
+  #leaderboard{background:#191919;border:1px solid #2a2a2a;border-radius:16px;padding:12px 16px;width:min(520px,92vw);text-align:left}
+  #leaderboard h2{margin:6px 0 10px 0;font-size:20px}
+  .row{display:flex;justify-content:space-between;padding:6px 0;font-size:18px}
+  .lead{margin-top:8px;font-weight:600;color:var(--accent)}
+  #game{position:relative;background:#101010}
+  #gameArea{position:relative;width:100vw;height:100vh;overflow:hidden;background:#0e0e0e}
+  #score,#timer{position:absolute;top:8px;padding:8px 12px;border-radius:12px;background:rgba(0,0,0,.35);font-weight:700;font-size:16px;border:1px solid #2a2a2a}
+  #score{left:10px;}#timer{right:10px;}
+  #character{position:absolute;bottom:20px;width:56px;height:56px;font-size:40px;line-height:56px;text-align:center;user-select:none;touch-action:none}
+  .bug{position:absolute;width:34px;height:34px;font-size:28px;text-align:center;pointer-events:none}
+  #touchControls{position:absolute;bottom:10px;left:0;right:0;display:flex;gap:10px;justify-content:center}
+  .ctrl{flex:0 0 44vw;max-width:440px;height:64px;border-radius:16px;border:1px solid #2e2e2e;background:rgba(30,30,30,.65);display:flex;align-items:center;justify-content:center;font-size:26px;color:#ddd;user-select:none}
+  .ctrl:active{background:rgba(50,50,50,.75)}
+  #end{flex-direction:column;gap:16px;text-align:center;background:#131313;padding:24px}
+  #endCard{background:#191919;border:1px solid #2a2a2a;border-radius:16px;padding:16px 20px;width:min(520px,92vw)}
 </style>
 </head>
 <body>
 
-<div id="menu" class="active">
-  <h1>Łap Pluskwy!</h1>
-  <p>Wybierz swoją postać:</p>
-  <button onclick="startGame('Piotrek')">MURAN🍔 </button>
-  <button onclick="startGame('Marcin')">GEBELS 🧔 </button>
-
-  <div id="leaderboard">
-    <h2>Tablica wyników</h2>
-    <p>MURAN 🍔: <span id="piotrekScore">0</span></p>
-    <p>GEBELS 🧔: <span id="marcinScore">0</span></p>
-    <p id="leaderMessage"></p>
+<section id="menu" class="screen active">
+  <div>
+    <h1>Łap Pluskwy!</h1>
+    <p>Wybierz swoją postać i łap 🐞 przez 20 sekund.</p>
+    <div style="display:flex;gap:10px;justify-content:center;flex-wrap:wrap;margin:12px 0 18px">
+      <button class="btn" onclick="startGame('MURAN')">MURAN 🍔</button>
+      <button class="btn" onclick="startGame('GEBELS')">GEBELS 🧔</button>
+    </div>
+    <div id="leaderboard">
+      <h2>Tablica wyników</h2>
+      <div class="row"><span>MURAN 🍔</span><span id="muranScore">0</span></div>
+      <div class="row"><span>GEBELS 🧔</span><span id="gebelsScore">0</span></div>
+      <div id="leaderMessage" class="lead">Zagraj pierwszą rundę!</div>
+    </div>
   </div>
-</div>
+</section>
 
-<div id="game">
-  <div id="score">Punkty: 0</div>
-  <div id="character"></div>
-</div>
+<section id="game" class="screen">
+  <div id="gameArea">
+    <div id="score">Punkty: 0</div>
+    <div id="timer">20s</div>
+    <div id="character">🍔</div>
+    <div id="touchControls">
+      <div id="btnLeft" class="ctrl">◀️</div>
+      <div id="btnRight" class="ctrl">▶️</div>
+    </div>
+  </div>
+</section>
 
-<div id="end">
-  <h1>Koniec gry!</h1>
-  <p id="endMessage"></p>
-  <button onclick="goToMenu()">Powrót do menu</button>
-</div>
+<section id="end" class="screen">
+  <div id="endCard">
+    <h2>Koniec rundy!</h2>
+    <p id="endMessage"></p>
+    <div id="sadFace" style="font-size:48px;margin:12px 0;display:none">🥴🐞🐞</div>
+    <div style="display:flex;gap:10px;justify-content:center;margin-top:8px">
+      <button class="btn" onclick="goToMenu()">Powrót do menu</button>
+      <button class="btn" onclick="restart()">Jeszcze raz</button>
+    </div>
+  </div>
+</section>
 
 <script>
-  let character, score = 0, bugInterval, activePlayer;
-  let leaderboard = { Piotrek: 0, Marcin: 0 };
+const LS_KEY="pluskwy_board_v2";
+let leaderboard=loadBoard();
+let activePlayer="MURAN",score=0,bugs=[],rafId=null,startTime=0,lastFrame=0,spawnAcc=0;
+const ROUND_MS=20000,CHAR_W=56,CHAR_H=56,BUG_W=34,BUG_H=34,BASE_FALL=180,SPAWN_EVERY=700,CHAR_SPEED=360;
+const screens={menu:menu,game:game,end:end};
+const gameArea=document.getElementById('gameArea'),character=document.getElementById('character'),scoreEl=score,timerEl=timer,endMessage=endMessage,sadFace=sadFace;
+const muranScoreEl=muranScore,gebelsScoreEl=gebelsScore,leaderMsgEl=leaderMessage;
+let holdingLeft=false,holdingRight=false;
 
-  function startGame(player) {
-    activePlayer = player;
-    document.getElementById("menu").classList.remove("active");
-    document.getElementById("end").classList.remove("active");
-    document.getElementById("game").classList.add("active");
+updateBoardUI();
 
-    character = document.getElementById("character");
-    character.innerText = player === "Piotrek" ? "🍔" : "🧔";
-    character.style.left = (window.innerWidth / 2) + "px";
-    score = 0;
-    document.getElementById("score").innerText = "Punkty: " + score;
-
-    document.addEventListener("keydown", moveCharacter);
-
-    bugInterval = setInterval(spawnBug, 1000);
-
-    // czas gry 20s
-    setTimeout(endGame, 20000);
-  }
-
-  function moveCharacter(e) {
-    const step = 30;
-    let left = character.offsetLeft;
-    if (e.key === "ArrowLeft") {
-      character.style.left = Math.max(0, left - step) + "px";
-    }
-    if (e.key === "ArrowRight") {
-      character.style.left = Math.min(window.innerWidth - 50, left + step) + "px";
-    }
-  }
-
-  function spawnBug() {
-    let bug = document.createElement("div");
-    bug.classList.add("pluskwa");
-    bug.innerText = "🐞";
-    bug.style.left = Math.random() * (window.innerWidth - 30) + "px";
-    bug.style.top = "0px";
-    document.body.appendChild(bug);
-
-    let fall = setInterval(() => {
-      let top = parseInt(bug.style.top);
-      bug.style.top = top + 5 + "px";
-
-      if (isColliding(bug, character)) {
-        score++;
-        document.getElementById("score").innerText = "Punkty: " + score;
-        bug.remove();
-        clearInterval(fall);
-      }
-
-      if (top > window.innerHeight - 50) {
-        bug.remove();
-        clearInterval(fall);
-      }
-    }, 30);
-  }
-
-  function isColliding(a, b) {
-    let aRect = a.getBoundingClientRect();
-    let bRect = b.getBoundingClientRect();
-    return !(
-      aRect.top > bRect.bottom ||
-      aRect.bottom < bRect.top ||
-      aRect.left > bRect.right ||
-      aRect.right < bRect.left
-    );
-  }
-
-  function endGame() {
-    clearInterval(bugInterval);
-    document.getElementById("game").classList.remove("active");
-    document.getElementById("end").classList.add("active");
-
-    leaderboard[activePlayer] += score;
-    document.getElementById("piotrekScore").innerText = leaderboard.Piotrek;
-    document.getElementById("marcinScore").innerText = leaderboard.Marcin;
-
-    document.getElementById("endMessage").innerText = 
-      `${activePlayer} złapał ${score} pluskiew!`;
-
-    updateLeaderMessage();
-  }
-
-  function updateLeaderMessage() {
-    const piotrek = leaderboard.Piotrek;
-    const marcin = leaderboard.Marcin;
-    const msg = document.getElementById("leaderMessage");
-
-    if (piotrek > marcin) {
-      msg.innerText = "🍔 Piotrek prowadzi!";
-    } else if (marcin > piotrek) {
-      msg.innerText = "🧔 Marcin prowadzi!";
-    } else {
-      msg.innerText = "Remis!";
-    }
-  }
-
-  function goToMenu() {
-    document.getElementById("end").classList.remove("active");
-    document.getElementById("menu").classList.add("active");
-  }
+function startGame(player){
+  activePlayer=player;
+  switchScreen('game');
+  character.textContent=(player==="MURAN")?"🍔":"🧔";
+  character.style.left=(gameArea.clientWidth-CHAR_W)/2+"px";
+  score=0;scoreEl.textContent="Punkty: 0";timerEl.textContent=ROUND_MS/1000+"s";
+  bugs.forEach(b=>b.el.remove());bugs=[];
+  startTime=performance.now();lastFrame=startTime;spawnAcc=0;
+  cancelAnimationFrame(rafId);rafId=requestAnimationFrame(loop);
+}
+function loop(now){
+  const dt=(now-lastFrame)/1000;lastFrame=now;
+  let x=parseFloat(character.style.left||"0");if(holdingLeft)x-=CHAR_SPEED*dt;if(holdingRight)x+=CHAR_SPEED*dt;
+  x=Math.max(0,Math.min(x,gameArea.clientWidth-CHAR_W));character.style.left=x+"px";
+  const elapsed=now-startTime;spawnAcc+=dt*1000;const spawnInterval=Math.max(280,SPAWN_EVERY-elapsed*0.25);
+  if(elapsed<ROUND_MS&&spawnAcc>=spawnInterval){spawnBug();spawnAcc=0;}
+  for(let i=bugs.length-1;i>=0;i--){const b=bugs[i];b.y+=b.vy*dt;b.el.style.transform=`translate(${b.x}px,${b.y}px)`;if(collides(b.x,b.y,BUG_W,BUG_H,x,gameArea.clientHeight-CHAR_H-20,CHAR_W,CHAR_H)){addScore(1);b.el.remove();bugs.splice(i,1);navigator.vibrate?.(80);continue;}if(b.y>gameArea.clientHeight){b.el.remove();bugs.splice(i,1);}}
+  const leftMs=Math.max(0,ROUND_MS-elapsed);timerEl.textContent=Math.ceil(leftMs/1000)+"s";
+  if(elapsed>=ROUND_MS){endGame();return;}
+  rafId=requestAnimationFrame(loop);
+}
+function spawnBug(){const el=document.createElement('div');el.className='bug';el.textContent='🐞';const x=Math.random()*(gameArea.clientWidth-BUG_W),y=-BUG_H,vy=BASE_FALL+Math.random()*120;el.style.transform=`translate(${x}px,${y}px)`;gameArea.appendChild(el);bugs.push({x,y,vy,el});}
+function addScore(n){score+=n;scoreEl.textContent="Punkty: "+score;}
+function endGame(){cancelAnimationFrame(rafId);bugs.forEach(b=>b.el.remove());bugs=[];leaderboard[activePlayer]+=score;saveBoard();updateBoardUI();endMessage.textContent=`${activePlayer} złapał ${score} pluskiew!`;sadFace.style.display="block";switchScreen('end');}
+function switchScreen(id){menu.classList.remove('active');game.classList.remove('active');end.classList.remove('active');screens[id].classList.add('active');if(id!=='end')sadFace.style.display="none";}
+function goToMenu(){switchScreen('menu');}
+function restart(){startGame(activePlayer);}
+function updateBoardUI(){muranScoreEl.textContent=leaderboard.MURAN;gebelsScoreEl.textContent=leaderboard.GEBELS;leaderMsgEl.textContent=(leaderboard.MURAN>leaderboard.GEBELS)?"🍔 MURAN prowadzi!":(leaderboard.GEBELS>leaderboard.MURAN)?"🧔 GEBELS prowadzi!":"Remis!";}
+function loadBoard(){try{const raw=localStorage.getItem(LS_KEY);if(!raw)return{MURAN:0,GEBELS:0};const obj=JSON.parse(raw);return{MURAN:obj.MURAN||0,GEBELS:obj.GEBELS||0};}catch(e){return{MURAN:0,GEBELS:0};}}
+function saveBoard(){localStorage.setItem(LS_KEY,JSON.stringify(leaderboard));}
+function collides(ax,ay,aw,ah,bx,by,bw,bh){return !(ay+ah<by||ay>by+bh||ax+aw<bx||ax>bx+bw);}
+btnLeft.addEventListener('pointerdown',()=>holdingLeft=true);btnRight.addEventListener('pointerdown',()=>holdingRight=true);
+btnLeft.addEventListener('pointerup',()=>holdingLeft=false);btnRight.addEventListener('pointerup',()=>holdingRight=false);
+window.addEventListener('keydown',e=>{if(e.key==='ArrowLeft')holdingLeft=true;if(e.key==='ArrowRight')holdingRight=true;});
+window.addEventListener('keyup',e=>{if(e.key==='ArrowLeft')holdingLeft=false;if(e.key==='ArrowRight')holdingRight=false;});
 </script>
-
 </body>
 </html>
