@@ -3,11 +3,14 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no" />
-<title>Łapanie Pluskwy — Tilt + Mobile</title>
+<title>Łapanie Pluskwy — Wspólny ranking (Firebase)</title>
+
+<!-- Firebase (compat) -->
+<script src="https://www.gstatic.com/firebasejs/10.12.4/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.4/firebase-database-compat.js"></script>
+
 <style>
-  :root{
-    --controls-h: 86px; /* wysokość strefy przycisków + margines */
-  }
+  :root{ --controls-h: 86px; }
   html,body{margin:0;height:100%;background:#111;color:#fff;font-family:system-ui,Segoe UI,Roboto,Arial;overflow:hidden}
   .screen{display:none;height:100%;width:100%;}
   .active{display:flex;align-items:center;justify-content:center;}
@@ -59,10 +62,10 @@
     </div>
 
     <div id="leaderboard">
-      <h2>Tablica wyników</h2>
+      <h2>Wspólna tablica wyników (online)</h2>
       <div class="row"><span>MURAN</span><span id="muranScore">0</span></div>
       <div class="row"><span>GEBELS</span><span id="gebelsScore">0</span></div>
-      <div id="leaderMessage" class="lead">Zagraj pierwszą rundę!</div>
+      <div id="leaderMessage" class="lead">Ładuje…</div>
     </div>
   </div>
 </section>
@@ -96,45 +99,73 @@
 </section>
 
 <script>
-/* ====== UTIL / STATE ====== */
+/* ===================  FIREBASE CONFIG  =================== */
+const firebaseConfig = {
+  apiKey: "AIzaSyBomuz19-3kgAlCYRipsJWTnCpmBSGjDng",
+  authDomain: "pluskwy-e524a.firebaseapp.com",
+  projectId: "pluskwy-e524a",
+  storageBucket: "pluskwy-e524a.appspot.com", /* poprawka */
+  messagingSenderId: "229515075697",
+  appId: "1:229515075697:web:7db12ac774700fc0da7bd0",
+  measurementId: "G-593B4PQS0N",
+  databaseURL: "https://pluskwy-e524a-default-rtdb.europe-west1.firebasedatabase.app"
+};
+
+firebase.initializeApp(firebaseConfig);
+const db = firebase.database();
+const LB_PATH = "/leaderboard/global";
+
+/* ===================  UTIL / STATE  =================== */
 const $=id=>document.getElementById(id);
-const LS_KEY="pluskwy_board_tilt_v2";
-let leaderboard=loadBoard(),activePlayer="MURAN",score=0,bugs=[],rafId=null,startTime=0,lastFrame=0,spawnAcc=0;
+let leaderboard = { MURAN: 0, GEBELS: 0 };
+let activePlayer="MURAN",score=0,bugs=[],rafId=null,startTime=0,lastFrame=0,spawnAcc=0;
+
 const ROUND_MS=20000,CHAR_W=56,CHAR_H=56,BUG_W=34,BUG_H=34,BASE_FALL=180,SPAWN_EVERY=700,CHAR_SPEED=360;
-const BOTTOM_OFFSET = (()=>{ // piksele odpowiadające bottom postaci (z CSS var)
-  // var(--controls-h) + 12px ~ 98px; ale oblicz dynamicznie:
-  const controlsH = 86; // trzymaj w sync z :root --controls-h (fallback)
-  return controlsH + 12;
-})();
+const BOTTOM_OFFSET = 98; // ~ --controls-h + 12px
 
 let holdingLeft=false,holdingRight=false,dragging=false,dragOffsetX=0;
 
-/* Tilt control — bardziej czułe */
-let tiltEnabled=false;
-let tiltZero=0;                   // kalibracja (deg)
-let tiltSensitivity=1.6;          // mnożnik
-let tiltGammaLP=0;                // low-pass gamma
-const TILT_FILTER=0.20;           // szybsza reakcja (0..1)
-const SPEED_PER_DEG_BASE=45;      // px/s na 1° (bazowo dość czułe)
-const DEADZONE=0.2;               // minimalny kąt odchylenia (deg)
+/* Tilt (czułe) */
+let tiltEnabled=false, tiltZero=0, tiltSensitivity=1.6, tiltGammaLP=0;
+const TILT_FILTER=0.20, SPEED_PER_DEG_BASE=45, DEADZONE=0.2;
 
-/* ====== DOM ====== */
+/* DOM */
 const screens={menu:$('menu'),game:$('game'),end:$('end')};
 const gameArea=$('gameArea'),character=$('character'),scoreEl=$('score'),timerEl=$('timer'),
       endMessage=$('endMessage'),sadFace=$('sadFace'),
       muranScoreEl=$('muranScore'),gebelsScoreEl=$('gebelsScore'),leaderMsgEl=$('leaderMessage'),
-      btnLeft=$('btnLeft'),btnRight=$('btnRight');
+      btnLeft=$('btnLeft'),btnRight=$('btnRight'),
+      btnEnableTilt=$('btnEnableTilt'),btnCalibrate=$('btnCalibrate'),
+      tiltSens=$('tiltSensitivity'),tiltSensVal=$('tiltSensVal'),tiltStatus=$('tiltStatus');
 
-const btnEnableTilt=$('btnEnableTilt');
-const btnCalibrate=$('btnCalibrate');
-const tiltSens=$('tiltSensitivity');
-const tiltSensVal=$('tiltSensVal');
-const tiltStatus=$('tiltStatus');
+/* ===================  ONLINE LEADERBOARD  =================== */
+async function loadBoardOnline(){
+  const snap = await db.ref(LB_PATH).get();
+  if (snap.exists()) return snap.val();
+  const initial={MURAN:0,GEBELS:0};
+  await db.ref(LB_PATH).set(initial);
+  return initial;
+}
+async function saveBoardOnline(obj){ await db.ref(LB_PATH).set(obj); }
+db.ref(LB_PATH).on("value", (snap)=>{
+  if (!snap.exists()) return;
+  leaderboard = snap.val();
+  updateBoardUI();
+});
+loadBoardOnline().then(lb => {
+  leaderboard = lb;
+  updateBoardUI();
+  leaderMsgEl.textContent = (leaderboard.MURAN>leaderboard.GEBELS)
+    ? "MURAN prowadzi!"
+    : (leaderboard.GEBELS>leaderboard.MURAN)
+      ? "GEBELS prowadzi!"
+      : "Remis!";
+}).catch(err=>{
+  console.warn("Błąd wczytania online:", err);
+  leaderMsgEl.textContent = "Błąd połączenia z rankingiem";
+});
 
-/* ====== INIT ====== */
-updateBoardUI();
-
-/* ====== AVATARS ====== */
+/* ===================  AVATARS  =================== */
 function avatarNormal(player){
   if(player==="MURAN"){
     return `
@@ -183,14 +214,14 @@ function avatarSad(player){
     </svg>`;
 }
 
-/* ====== GAME ====== */
-function setAvatar(player){ character.innerHTML = avatarNormal(player); }
+/* ===================  GAME  =================== */
+function setAvatar(player){ $('character').innerHTML = avatarNormal(player); }
 
 function startGame(player){
   activePlayer=player;
   switchScreen('game');
   setAvatar(player);
-  character.style.left=(gameArea.clientWidth-CHAR_W)/2+"px";
+  $('character').style.left=(gameArea.clientWidth-CHAR_W)/2+"px";
   score=0;scoreEl.textContent="Punkty: 0";timerEl.textContent=(ROUND_MS/1000)+"s";
   for(const b of bugs)b.el.remove();bugs.length=0;spawnAcc=0;
   startTime=performance.now();lastFrame=startTime;
@@ -199,28 +230,27 @@ function startGame(player){
 
 function loop(now){
   const dt=(now-lastFrame)/1000; lastFrame=now;
-  let x=parseFloat(character.style.left||"0");
+  let x=parseFloat($('character').style.left||"0");
 
-  // TILT (bardziej czułe, z deadzone)
+  // Tilt
   if(tiltEnabled){
     let deltaDeg = tiltGammaLP - tiltZero;
     if (Math.abs(deltaDeg) < DEADZONE) deltaDeg = 0;
-    const speedPerDeg = SPEED_PER_DEG_BASE * tiltSensitivity; // px/s per deg
+    const speedPerDeg = SPEED_PER_DEG_BASE * tiltSensitivity;
     x += (deltaDeg * speedPerDeg) * dt;
   }
-
-  // Fallback: przyciski
+  // Buttons fallback
   if(holdingLeft)  x -= CHAR_SPEED * dt;
   if(holdingRight) x += CHAR_SPEED * dt;
 
-  x = Math.max(0, Math.min(x, gameArea.clientWidth-CHAR_W));
-  character.style.left = x + "px";
+  x=Math.max(0,Math.min(x,gameArea.clientWidth-CHAR_W));
+  $('character').style.left=x+"px";
 
   const elapsed=now-startTime;
 
-  // Spawn pluskiew (coraz szybciej)
+  // Spawn pluskiew
   spawnAcc += dt*1000;
-  const spawnInterval = Math.max(260, SPAWN_EVERY - elapsed*0.28); // lekko szybciej
+  const spawnInterval = Math.max(260, SPAWN_EVERY - elapsed*0.28);
   if(elapsed<ROUND_MS && spawnAcc>=spawnInterval){ spawnBug(); spawnAcc=0; }
 
   // Update pluskiew
@@ -238,7 +268,6 @@ function loop(now){
     if(b.y>gameArea.clientHeight){ b.el.remove(); bugs.splice(i,1); }
   }
 
-  // Timer
   const leftMs=Math.max(0, ROUND_MS-elapsed);
   timerEl.textContent=Math.ceil(leftMs/1000)+'s';
   if(elapsed>=ROUND_MS){ endGame(); return; }
@@ -251,29 +280,30 @@ function spawnBug(){
   el.className='bug'; el.textContent='🐞';
   const x=Math.random()*(gameArea.clientWidth-BUG_W);
   const y=-BUG_H;
-  const vy=BASE_FALL+Math.random()*140; // odrobinę szybciej
+  const vy=BASE_FALL+Math.random()*140;
   el.style.transform=`translate(${x}px,${y}px)`;
   gameArea.appendChild(el);
   bugs.push({x,y,vy,el});
 }
-
 function addScore(n){ score+=n; scoreEl.textContent="Punkty: "+score; }
 
-function endGame(){
+async function endGame(){
   cancelAnimationFrame(rafId);
   for(const b of bugs) b.el.remove();
   bugs.length=0;
 
-  leaderboard[activePlayer]+=score;
-  saveBoard(); updateBoardUI();
+  // Zapis online
+  leaderboard[activePlayer] = (leaderboard[activePlayer]||0) + score;
+  try { await saveBoardOnline(leaderboard); } catch(e){ console.warn("Zapis online nieudany:", e); }
 
+  updateBoardUI();
   endMessage.textContent=`${activePlayer} złapał ${score} pluskiew!`;
   sadFace.innerHTML = avatarSad(activePlayer);
   sadFace.style.display='block';
   switchScreen('end');
 }
 
-/* ====== SCREENS / UI ====== */
+/* ===================  SCREENS / UI  =================== */
 function switchScreen(id){
   screens.menu.classList.remove('active');
   screens.game.classList.remove('active');
@@ -285,32 +315,19 @@ function goToMenu(){ switchScreen('menu'); }
 function restart(){ startGame(activePlayer); }
 
 function updateBoardUI(){
-  muranScoreEl.textContent=leaderboard.MURAN||0;
-  gebelsScoreEl.textContent=leaderboard.GEBELS||0;
-  leaderMsgEl.textContent=(leaderboard.MURAN>leaderboard.GEBELS)
+  muranScoreEl.textContent = leaderboard.MURAN ?? 0;
+  gebelsScoreEl.textContent = leaderboard.GEBELS ?? 0;
+  leaderMsgEl.textContent = (leaderboard.MURAN>leaderboard.GEBELS)
     ? "MURAN prowadzi!"
     : (leaderboard.GEBELS>leaderboard.MURAN)
       ? "GEBELS prowadzi!"
       : "Remis!";
 }
 
-/* ====== STORAGE ====== */
-function loadBoard(){
-  try{
-    const raw=localStorage.getItem(LS_KEY);
-    if(!raw) return {MURAN:0,GEBELS:0};
-    const obj=JSON.parse(raw);
-    return {MURAN:obj.MURAN||0,GEBELS:obj.GEBELS||0};
-  }catch(e){ return {MURAN:0,GEBELS:0}; }
-}
-function saveBoard(){ localStorage.setItem(LS_KEY, JSON.stringify(leaderboard)); }
+/* ===================  INPUT / HELPERS  =================== */
+function collides(ax,ay,aw,ah,bx,by,bw,bh){ return !(ay+ah<by || ay>by+bh || ax+aw<bx || ax>bx+bw); }
 
-/* ====== INPUT / HELPERS ====== */
-function collides(ax,ay,aw,ah,bx,by,bw,bh){
-  return !(ay+ah<by || ay>by+bh || ax+aw<bx || ax>bx+bw);
-}
-
-// Buttons fallback
+// Buttons
 btnLeft.addEventListener('pointerdown',e=>{holdingLeft=true; e.preventDefault();},{passive:false});
 btnRight.addEventListener('pointerdown',e=>{holdingRight=true; e.preventDefault();},{passive:false});
 btnLeft.addEventListener('pointerup',()=>holdingLeft=false);
@@ -318,7 +335,7 @@ btnRight.addEventListener('pointerup',()=>holdingRight=false);
 btnLeft.addEventListener('pointerleave',()=>holdingLeft=false);
 btnRight.addEventListener('pointerleave',()=>holdingRight=false);
 
-// Drag character
+// Drag
 character.addEventListener('pointerdown',(e)=>{
   dragging=true; character.setPointerCapture(e.pointerId);
   const rect=character.getBoundingClientRect();
@@ -334,7 +351,7 @@ character.addEventListener('pointermove',(e)=>{
 },{passive:false});
 character.addEventListener('pointerup',()=>{dragging=false;});
 
-// Keyboard
+// Klawiatura
 window.addEventListener('keydown',e=>{
   if(e.key==='ArrowLeft') holdingLeft=true;
   if(e.key==='ArrowRight') holdingRight=true;
@@ -367,18 +384,14 @@ btnEnableTilt.addEventListener('click', async ()=>{
     console.warn(err);
   }
 });
-
 btnCalibrate.addEventListener('click', ()=>{
-  tiltZero = tiltGammaLP; // ustaw aktualny przechył jako 0°
+  tiltZero = tiltGammaLP;
   tiltStatus.textContent = `Status: skalibrowane (zero = ${tiltZero.toFixed(1)}°)`;
 });
-
 tiltSens.addEventListener('input', ()=>{
   tiltSensitivity = parseFloat(tiltSens.value);
   tiltSensVal.textContent = tiltSensitivity.toFixed(1)+'×';
 });
-
-// gamma = obrót lewo/prawo (-90..+90)
 function onOrientation(ev){
   const g = ev.gamma;
   if (g == null) return;
