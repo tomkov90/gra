@@ -1,0 +1,185 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+<meta charset="UTF-8">
+<title>Łapanie Pluskiew</title>
+<style>
+  body {
+    margin: 0;
+    font-family: Arial, sans-serif;
+    background: #222;
+    color: white;
+    overflow: hidden;
+    text-align: center;
+  }
+  #menu, #game, #end {
+    display: none;
+  }
+  #menu.active, #game.active, #end.active {
+    display: block;
+  }
+  #character {
+    position: absolute;
+    bottom: 20px;
+    left: 50%;
+    transform: translateX(-50%);
+    font-size: 40px;
+  }
+  .pluskwa {
+    position: absolute;
+    font-size: 30px;
+  }
+  #score {
+    position: absolute;
+    top: 10px;
+    left: 10px;
+    font-size: 20px;
+  }
+  #leaderboard {
+    margin-top: 20px;
+    font-size: 18px;
+  }
+  button {
+    padding: 10px 20px;
+    font-size: 18px;
+    margin: 10px;
+    cursor: pointer;
+  }
+</style>
+</head>
+<body>
+
+<div id="menu" class="active">
+  <h1>Łap Pluskwy!</h1>
+  <p>Wybierz swoją postać:</p>
+  <button onclick="startGame('Piotrek')">MURAN🍔 </button>
+  <button onclick="startGame('Marcin')">GEBELS 🧔 </button>
+
+  <div id="leaderboard">
+    <h2>Tablica wyników</h2>
+    <p>MURAN 🍔: <span id="piotrekScore">0</span></p>
+    <p>GEBELS 🧔: <span id="marcinScore">0</span></p>
+    <p id="leaderMessage"></p>
+  </div>
+</div>
+
+<div id="game">
+  <div id="score">Punkty: 0</div>
+  <div id="character"></div>
+</div>
+
+<div id="end">
+  <h1>Koniec gry!</h1>
+  <p id="endMessage"></p>
+  <button onclick="goToMenu()">Powrót do menu</button>
+</div>
+
+<script>
+  let character, score = 0, bugInterval, activePlayer;
+  let leaderboard = { Piotrek: 0, Marcin: 0 };
+
+  function startGame(player) {
+    activePlayer = player;
+    document.getElementById("menu").classList.remove("active");
+    document.getElementById("end").classList.remove("active");
+    document.getElementById("game").classList.add("active");
+
+    character = document.getElementById("character");
+    character.innerText = player === "Piotrek" ? "🍔" : "🧔";
+    character.style.left = (window.innerWidth / 2) + "px";
+    score = 0;
+    document.getElementById("score").innerText = "Punkty: " + score;
+
+    document.addEventListener("keydown", moveCharacter);
+
+    bugInterval = setInterval(spawnBug, 1000);
+
+    // czas gry 20s
+    setTimeout(endGame, 20000);
+  }
+
+  function moveCharacter(e) {
+    const step = 30;
+    let left = character.offsetLeft;
+    if (e.key === "ArrowLeft") {
+      character.style.left = Math.max(0, left - step) + "px";
+    }
+    if (e.key === "ArrowRight") {
+      character.style.left = Math.min(window.innerWidth - 50, left + step) + "px";
+    }
+  }
+
+  function spawnBug() {
+    let bug = document.createElement("div");
+    bug.classList.add("pluskwa");
+    bug.innerText = "🐞";
+    bug.style.left = Math.random() * (window.innerWidth - 30) + "px";
+    bug.style.top = "0px";
+    document.body.appendChild(bug);
+
+    let fall = setInterval(() => {
+      let top = parseInt(bug.style.top);
+      bug.style.top = top + 5 + "px";
+
+      if (isColliding(bug, character)) {
+        score++;
+        document.getElementById("score").innerText = "Punkty: " + score;
+        bug.remove();
+        clearInterval(fall);
+      }
+
+      if (top > window.innerHeight - 50) {
+        bug.remove();
+        clearInterval(fall);
+      }
+    }, 30);
+  }
+
+  function isColliding(a, b) {
+    let aRect = a.getBoundingClientRect();
+    let bRect = b.getBoundingClientRect();
+    return !(
+      aRect.top > bRect.bottom ||
+      aRect.bottom < bRect.top ||
+      aRect.left > bRect.right ||
+      aRect.right < bRect.left
+    );
+  }
+
+  function endGame() {
+    clearInterval(bugInterval);
+    document.getElementById("game").classList.remove("active");
+    document.getElementById("end").classList.add("active");
+
+    leaderboard[activePlayer] += score;
+    document.getElementById("piotrekScore").innerText = leaderboard.Piotrek;
+    document.getElementById("marcinScore").innerText = leaderboard.Marcin;
+
+    document.getElementById("endMessage").innerText = 
+      `${activePlayer} złapał ${score} pluskiew!`;
+
+    updateLeaderMessage();
+  }
+
+  function updateLeaderMessage() {
+    const piotrek = leaderboard.Piotrek;
+    const marcin = leaderboard.Marcin;
+    const msg = document.getElementById("leaderMessage");
+
+    if (piotrek > marcin) {
+      msg.innerText = "🍔 Piotrek prowadzi!";
+    } else if (marcin > piotrek) {
+      msg.innerText = "🧔 Marcin prowadzi!";
+    } else {
+      msg.innerText = "Remis!";
+    }
+  }
+
+  function goToMenu() {
+    document.getElementById("end").classList.remove("active");
+    document.getElementById("menu").classList.add("active");
+  }
+</script>
+
+</body>
+</html>
