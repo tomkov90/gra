@@ -12,20 +12,20 @@
   .screen{display:none;height:100%;width:100%;}
   .active{display:flex;align-items:center;justify-content:center;}
   #menu{flex-direction:column;gap:16px;padding:24px;text-align:center;background:#151515;}
-  .btn{background:#2a2a2a;color:#fff;border:0;border-radius:14px;padding:14px 18px;font-size:18px}
+  .btn{background:#2a2a2a;color:#fff;border:0;border-radius:14px;padding:14px 18px;font-size:18px;cursor:pointer}
   .btn:active{transform:scale(.98)}
   #leaderboard{background:#191919;border:1px solid #2a2a2a;border-radius:16px;padding:12px 16px;width:min(520px,92vw);text-align:left}
   #leaderboard h2{margin:6px 0 10px 0;font-size:20px}
   .row{display:flex;justify-content:space-between;padding:6px 0;font-size:18px}
   .lead{margin-top:8px;font-weight:600;color:var(--accent)}
   #game{position:relative;background:#101010}
-  #gameArea{position:relative;width:100vw;height:100vh;overflow:hidden;background:#0e0e0e}
+  #gameArea{position:relative;width:100vw;height:100vh;overflow:hidden;background:radial-gradient(ellipse at top,#181818,#0e0e0e)}
   #score,#timer{position:absolute;top:8px;padding:8px 12px;border-radius:12px;background:rgba(0,0,0,.35);font-weight:700;font-size:16px;border:1px solid #2a2a2a}
   #score{left:10px;}#timer{right:10px;}
-  #character{position:absolute;bottom:20px;width:56px;height:56px;font-size:40px;line-height:56px;text-align:center;user-select:none;touch-action:none}
+  #character{position:absolute;bottom:20px;width:56px;height:56px;font-size:40px;line-height:56px;text-align:center;user-select:none;touch-action:none;filter:drop-shadow(0 6px 10px rgba(0,0,0,.45))}
   .bug{position:absolute;width:34px;height:34px;font-size:28px;text-align:center;pointer-events:none}
   #touchControls{position:absolute;bottom:10px;left:0;right:0;display:flex;gap:10px;justify-content:center}
-  .ctrl{flex:0 0 44vw;max-width:440px;height:64px;border-radius:16px;border:1px solid #2e2e2e;background:rgba(30,30,30,.65);display:flex;align-items:center;justify-content:center;font-size:26px;color:#ddd;user-select:none}
+  .ctrl{flex:0 0 44vw;max-width:440px;height:64px;border-radius:16px;border:1px solid #2e2e2e;background:rgba(30,30,30,.65);backdrop-filter:saturate(130%) blur(4px);display:flex;align-items:center;justify-content:center;font-size:26px;color:#ddd;user-select:none}
   .ctrl:active{background:rgba(50,50,50,.75)}
   #end{flex-direction:column;gap:16px;text-align:center;background:#131313;padding:24px}
   #endCard{background:#191919;border:1px solid #2a2a2a;border-radius:16px;padding:16px 20px;width:min(520px,92vw)}
@@ -33,6 +33,7 @@
 </head>
 <body>
 
+<!-- MENU -->
 <section id="menu" class="screen active">
   <div>
     <h1>Łap Pluskwy!</h1>
@@ -50,11 +51,14 @@
   </div>
 </section>
 
+<!-- GRA -->
 <section id="game" class="screen">
   <div id="gameArea">
     <div id="score">Punkty: 0</div>
     <div id="timer">20s</div>
     <div id="character">🍔</div>
+
+    <!-- Sterowanie dotykowe -->
     <div id="touchControls">
       <div id="btnLeft" class="ctrl">◀️</div>
       <div id="btnRight" class="ctrl">▶️</div>
@@ -62,6 +66,7 @@
   </div>
 </section>
 
+<!-- KONIEC RUNDY -->
 <section id="end" class="screen">
   <div id="endCard">
     <h2>Koniec rundy!</h2>
@@ -75,52 +80,246 @@
 </section>
 
 <script>
-const LS_KEY="pluskwy_board_v2";
-let leaderboard=loadBoard();
-let activePlayer="MURAN",score=0,bugs=[],rafId=null,startTime=0,lastFrame=0,spawnAcc=0;
-const ROUND_MS=20000,CHAR_W=56,CHAR_H=56,BUG_W=34,BUG_H=34,BASE_FALL=180,SPAWN_EVERY=700,CHAR_SPEED=360;
-const screens={menu:menu,game:game,end:end};
-const gameArea=document.getElementById('gameArea'),character=document.getElementById('character'),scoreEl=score,timerEl=timer,endMessage=endMessage,sadFace=sadFace;
-const muranScoreEl=muranScore,gebelsScoreEl=gebelsScore,leaderMsgEl=leaderMessage;
-let holdingLeft=false,holdingRight=false;
+  // --- Helper do pobierania elementów
+  const $ = (id) => document.getElementById(id);
 
-updateBoardUI();
+  // --- Stałe i stan
+  const LS_KEY = "pluskwy_board_v2";
+  const ROUND_MS   = 20000;
+  const CHAR_W     = 56, CHAR_H = 56;
+  const BUG_W      = 34, BUG_H  = 34;
+  const BASE_FALL  = 180;      // px/s
+  const SPAWN_EVERY= 700;      // ms (będzie przyspieszać)
+  const CHAR_SPEED = 360;      // px/s (przy przyciskach)
 
-function startGame(player){
-  activePlayer=player;
-  switchScreen('game');
-  character.textContent=(player==="MURAN")?"🍔":"🧔";
-  character.style.left=(gameArea.clientWidth-CHAR_W)/2+"px";
-  score=0;scoreEl.textContent="Punkty: 0";timerEl.textContent=ROUND_MS/1000+"s";
-  bugs.forEach(b=>b.el.remove());bugs=[];
-  startTime=performance.now();lastFrame=startTime;spawnAcc=0;
-  cancelAnimationFrame(rafId);rafId=requestAnimationFrame(loop);
-}
-function loop(now){
-  const dt=(now-lastFrame)/1000;lastFrame=now;
-  let x=parseFloat(character.style.left||"0");if(holdingLeft)x-=CHAR_SPEED*dt;if(holdingRight)x+=CHAR_SPEED*dt;
-  x=Math.max(0,Math.min(x,gameArea.clientWidth-CHAR_W));character.style.left=x+"px";
-  const elapsed=now-startTime;spawnAcc+=dt*1000;const spawnInterval=Math.max(280,SPAWN_EVERY-elapsed*0.25);
-  if(elapsed<ROUND_MS&&spawnAcc>=spawnInterval){spawnBug();spawnAcc=0;}
-  for(let i=bugs.length-1;i>=0;i--){const b=bugs[i];b.y+=b.vy*dt;b.el.style.transform=`translate(${b.x}px,${b.y}px)`;if(collides(b.x,b.y,BUG_W,BUG_H,x,gameArea.clientHeight-CHAR_H-20,CHAR_W,CHAR_H)){addScore(1);b.el.remove();bugs.splice(i,1);navigator.vibrate?.(80);continue;}if(b.y>gameArea.clientHeight){b.el.remove();bugs.splice(i,1);}}
-  const leftMs=Math.max(0,ROUND_MS-elapsed);timerEl.textContent=Math.ceil(leftMs/1000)+"s";
-  if(elapsed>=ROUND_MS){endGame();return;}
-  rafId=requestAnimationFrame(loop);
-}
-function spawnBug(){const el=document.createElement('div');el.className='bug';el.textContent='🐞';const x=Math.random()*(gameArea.clientWidth-BUG_W),y=-BUG_H,vy=BASE_FALL+Math.random()*120;el.style.transform=`translate(${x}px,${y}px)`;gameArea.appendChild(el);bugs.push({x,y,vy,el});}
-function addScore(n){score+=n;scoreEl.textContent="Punkty: "+score;}
-function endGame(){cancelAnimationFrame(rafId);bugs.forEach(b=>b.el.remove());bugs=[];leaderboard[activePlayer]+=score;saveBoard();updateBoardUI();endMessage.textContent=`${activePlayer} złapał ${score} pluskiew!`;sadFace.style.display="block";switchScreen('end');}
-function switchScreen(id){menu.classList.remove('active');game.classList.remove('active');end.classList.remove('active');screens[id].classList.add('active');if(id!=='end')sadFace.style.display="none";}
-function goToMenu(){switchScreen('menu');}
-function restart(){startGame(activePlayer);}
-function updateBoardUI(){muranScoreEl.textContent=leaderboard.MURAN;gebelsScoreEl.textContent=leaderboard.GEBELS;leaderMsgEl.textContent=(leaderboard.MURAN>leaderboard.GEBELS)?"🍔 MURAN prowadzi!":(leaderboard.GEBELS>leaderboard.MURAN)?"🧔 GEBELS prowadzi!":"Remis!";}
-function loadBoard(){try{const raw=localStorage.getItem(LS_KEY);if(!raw)return{MURAN:0,GEBELS:0};const obj=JSON.parse(raw);return{MURAN:obj.MURAN||0,GEBELS:obj.GEBELS||0};}catch(e){return{MURAN:0,GEBELS:0};}}
-function saveBoard(){localStorage.setItem(LS_KEY,JSON.stringify(leaderboard));}
-function collides(ax,ay,aw,ah,bx,by,bw,bh){return !(ay+ah<by||ay>by+bh||ax+aw<bx||ax>bx+bw);}
-btnLeft.addEventListener('pointerdown',()=>holdingLeft=true);btnRight.addEventListener('pointerdown',()=>holdingRight=true);
-btnLeft.addEventListener('pointerup',()=>holdingLeft=false);btnRight.addEventListener('pointerup',()=>holdingRight=false);
-window.addEventListener('keydown',e=>{if(e.key==='ArrowLeft')holdingLeft=true;if(e.key==='ArrowRight')holdingRight=true;});
-window.addEventListener('keyup',e=>{if(e.key==='ArrowLeft')holdingLeft=false;if(e.key==='ArrowRight')holdingRight=false;});
+  let leaderboard = loadBoard();
+  let activePlayer = "MURAN";
+  let score = 0;
+  let bugs = [];
+  let rafId = null;
+  let startTime = 0;
+  let lastFrame = 0;
+  let spawnAcc = 0;
+  let holdingLeft = false, holdingRight = false;
+  let dragging = false, dragOffsetX = 0;
+
+  // --- Elementy DOM
+  const screens = { menu: $('menu'), game: $('game'), end: $('end') };
+  const gameArea = $('gameArea');
+  const character = $('character');
+  const scoreEl = $('score');
+  const timerEl = $('timer');
+  const endMessage = $('endMessage');
+  const sadFace = $('sadFace');
+  const muranScoreEl = $('muranScore');
+  const gebelsScoreEl = $('gebelsScore');
+  const leaderMsgEl = $('leaderMessage');
+  const btnLeft = $('btnLeft');
+  const btnRight = $('btnRight');
+
+  // Inicjalizacja tablicy wyników
+  updateBoardUI();
+
+  // --- Start gry
+  function startGame(player){
+    activePlayer = player;
+    switchScreen('game');
+    character.textContent = (player === 'MURAN') ? '🍔' : '🧔';
+    character.style.left = ((gameArea.clientWidth - CHAR_W) / 2) + 'px';
+
+    // Reset rundy
+    for (const b of bugs) b.el.remove();
+    bugs.length = 0;
+    score = 0;
+    scoreEl.textContent = 'Punkty: 0';
+    timerEl.textContent = (ROUND_MS/1000)+'s';
+    spawnAcc = 0;
+
+    startTime = performance.now();
+    lastFrame = startTime;
+
+    cancelAnimationFrame(rafId);
+    rafId = requestAnimationFrame(loop);
+  }
+
+  // --- Pętla gry
+  function loop(now){
+    const dt = (now - lastFrame) / 1000; // sekundy
+    lastFrame = now;
+
+    // Ruch postaci klawiszami / przyciskami
+    let x = parseFloat(character.style.left || "0");
+    if (holdingLeft)  x -= CHAR_SPEED * dt;
+    if (holdingRight) x += CHAR_SPEED * dt;
+    x = clamp(x, 0, gameArea.clientWidth - CHAR_W);
+    character.style.left = x + 'px';
+
+    const elapsed = now - startTime;
+
+    // Spawn pluskiew (coraz szybciej)
+    spawnAcc += dt * 1000; // liczymy w ms
+    const spawnInterval = Math.max(280, SPAWN_EVERY - elapsed * 0.25);
+    if (elapsed < ROUND_MS && spawnAcc >= spawnInterval) {
+      spawnBug();
+      spawnAcc = 0;
+    }
+
+    // Update pluskiew
+    const charY = gameArea.clientHeight - CHAR_H - 20;
+    for (let i = bugs.length - 1; i >= 0; i--) {
+      const b = bugs[i];
+      b.y += b.vy * dt;
+      b.el.style.transform = `translate(${b.x}px, ${b.y}px)`;
+
+      // Kolizja
+      if (collides(b.x, b.y, BUG_W, BUG_H, x, charY, CHAR_W, CHAR_H)) {
+        addScore(1);
+        b.el.remove();
+        bugs.splice(i, 1);
+        // Wibracja (jeśli dozwolona przez przeglądarkę / po interakcji)
+        if (navigator.vibrate) { try { navigator.vibrate(80); } catch(_){} }
+        continue;
+      }
+
+      // Poza ekran
+      if (b.y > gameArea.clientHeight) {
+        b.el.remove();
+        bugs.splice(i, 1);
+      }
+    }
+
+    // Timer
+    const leftMs = Math.max(0, ROUND_MS - elapsed);
+    timerEl.textContent = Math.ceil(leftMs / 1000) + 's';
+
+    if (elapsed >= ROUND_MS) {
+      endGame();
+      return;
+    }
+
+    rafId = requestAnimationFrame(loop);
+  }
+
+  // --- Tworzenie pluskwy
+  function spawnBug(){
+    const el = document.createElement('div');
+    el.className = 'bug';
+    el.textContent = '🐞';
+    const x = Math.random() * (gameArea.clientWidth - BUG_W);
+    const y = -BUG_H;
+    const vy = BASE_FALL + Math.random() * 120; // px/s
+    el.style.transform = `translate(${x}px, ${y}px)`;
+    gameArea.appendChild(el);
+    bugs.push({ x, y, vy, el });
+  }
+
+  // --- Punkty
+  function addScore(n){
+    score += n;
+    scoreEl.textContent = 'Punkty: ' + score;
+  }
+
+  // --- Koniec gry
+  function endGame(){
+    cancelAnimationFrame(rafId);
+    for (const b of bugs) b.el.remove();
+    bugs.length = 0;
+
+    // Zapis do tablicy wyników
+    leaderboard[activePlayer] += score;
+    saveBoard();
+    updateBoardUI();
+
+    endMessage.textContent = `${activePlayer} złapał ${score} pluskiew!`;
+    sadFace.style.display = 'block'; // smutna, pogryziona postać
+    switchScreen('end');
+  }
+
+  // --- Przełączanie ekranów
+  function switchScreen(id){
+    screens.menu.classList.remove('active');
+    screens.game.classList.remove('active');
+    screens.end.classList.remove('active');
+    screens[id].classList.add('active');
+    if (id !== 'end') sadFace.style.display = 'none';
+  }
+  function goToMenu(){ switchScreen('menu'); }
+  function restart(){ startGame(activePlayer); }
+
+  // --- Tablica wyników
+  function updateBoardUI(){
+    muranScoreEl.textContent  = leaderboard.MURAN || 0;
+    gebelsScoreEl.textContent = leaderboard.GEBELS || 0;
+    leaderMsgEl.textContent =
+      (leaderboard.MURAN > leaderboard.GEBELS) ? '🍔 MURAN prowadzi!' :
+      (leaderboard.GEBELS > leaderboard.MURAN) ? '🧔 GEBELS prowadzi!' :
+      'Remis!';
+  }
+
+  function loadBoard(){
+    try{
+      const raw = localStorage.getItem(LS_KEY);
+      if (!raw) return { MURAN: 0, GEBELS: 0 };
+      const obj = JSON.parse(raw);
+      return { MURAN: obj.MURAN || 0, GEBELS: obj.GEBELS || 0 };
+    }catch(e){
+      return { MURAN: 0, GEBELS: 0 };
+    }
+  }
+  function saveBoard(){ localStorage.setItem(LS_KEY, JSON.stringify(leaderboard)); }
+
+  // --- Narzędzia
+  function collides(ax,ay,aw,ah, bx,by,bw,bh){
+    return !(ay+ah < by || ay > by+bh || ax+aw < bx || ax > bx+bw);
+  }
+  function clamp(v,min,max){ return Math.max(min, Math.min(max, v)); }
+
+  // --- Sterowanie DOTYKIEM: przeciąganie postaci
+  character.addEventListener('pointerdown', (e)=>{
+    dragging = true;
+    character.setPointerCapture(e.pointerId);
+    const rect = character.getBoundingClientRect();
+    dragOffsetX = e.clientX - rect.left;
+    e.preventDefault();
+  }, {passive:false});
+  character.addEventListener('pointermove', (e)=>{
+    if (!dragging) return;
+    const areaRect = gameArea.getBoundingClientRect();
+    let x = e.clientX - areaRect.left - dragOffsetX;
+    x = clamp(x, 0, gameArea.clientWidth - CHAR_W);
+    character.style.left = x + 'px';
+    e.preventDefault();
+  }, {passive:false});
+  character.addEventListener('pointerup', ()=>{ dragging = false; });
+
+  // --- Sterowanie DOTYKOWE: przyciski ◀️ ▶️
+  const press = (dir)=> (e)=>{ if(dir<0) holdingLeft=true; else holdingRight=true; e.preventDefault(); };
+  const release = (dir)=> ()=>{ if(dir<0) holdingLeft=false; else holdingRight=false; };
+  btnLeft.addEventListener('pointerdown', press(-1), {passive:false});
+  btnRight.addEventListener('pointerdown', press(1),  {passive:false});
+  btnLeft.addEventListener('pointerup',   release(-1));
+  btnRight.addEventListener('pointerup',  release(1));
+  btnLeft.addEventListener('pointercancel', release(-1));
+  btnRight.addEventListener('pointercancel', release(1));
+  btnLeft.addEventListener('pointerleave', release(-1));
+  btnRight.addEventListener('pointerleave', release(1));
+
+  // --- Klawiatura (PC)
+  window.addEventListener('keydown', (e)=>{
+    if(e.key==='ArrowLeft')  holdingLeft = true;
+    if(e.key==='ArrowRight') holdingRight = true;
+  });
+  window.addEventListener('keyup', (e)=>{
+    if(e.key==='ArrowLeft')  holdingLeft = false;
+    if(e.key==='ArrowRight') holdingRight = false;
+  });
+
+  // --- Zmiana rozmiaru (obrót ekranu itp.)
+  window.addEventListener('resize', ()=>{
+    let x = parseFloat(character.style.left || "0");
+    x = clamp(x, 0, gameArea.clientWidth - CHAR_W);
+    character.style.left = x + 'px';
+  });
 </script>
 </body>
 </html>
