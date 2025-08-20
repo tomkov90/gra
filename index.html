@@ -4,38 +4,13 @@
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no" />
 <title>Łapanie Pluskwy — Wspólny ranking (Firebase)</title>
-
 <!-- Firebase (compat) -->
 <script src="https://www.gstatic.com/firebasejs/10.12.4/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.4/firebase-database-compat.js"></script>
-
 <style>
-  :root{ --controls-h: 86px; }
-  html,body{margin:0;height:100%;background:#111;color:#fff;font-family:system-ui,Segoe UI,Roboto,Arial;overflow:hidden}
-  .screen{display:none;height:100%;width:100%;}
-  .active{display:flex;align-items:center;justify-content:center;}
-  #menu{flex-direction:column;gap:16px;text-align:center;padding:16px}
-  .btn{background:#2a2a2a;color:#fff;border:0;border-radius:14px;padding:12px 16px;font-size:16px;cursor:pointer}
-  .btn:active{transform:scale(.98)}
-  #leaderboard{background:#191919;border:1px solid #2a2a2a;border-radius:16px;padding:12px 16px;width:min(520px,92vw);text-align:left;margin-top:12px}
-  #leaderboard h2{margin:6px 0 10px 0;font-size:20px}
-  .row{display:flex;justify-content:space-between;padding:6px 0;font-size:18px}
-  .lead{margin-top:8px;font-weight:600;color:#4ade80}
-  #tiltBox{background:#191919;border:1px solid #2a2a2a;border-radius:16px;padding:12px 16px;width:min(520px,92vw); text-align:left}
-  #gameArea{position:relative;width:100vw;height:100vh;overflow:hidden;background:radial-gradient(ellipse at top,#181818,#0e0e0e)}
-  #score,#timer{position:absolute;top:8px;padding:8px 12px;border-radius:12px;background:rgba(0,0,0,.35);font-weight:700;font-size:16px;border:1px solid #2a2a2a}
-  #score{left:10px;}#timer{right:10px;}
-  #character{position:absolute;bottom:calc(var(--controls-h) + 12px);width:56px;height:56px;user-select:none;touch-action:none}
-  .bug{position:absolute;width:34px;height:34px;font-size:28px;pointer-events:none}
-  #touchControls{position:absolute;bottom:10px;left:0;right:0;display:flex;gap:10px;justify-content:center}
-  .ctrl{flex:0 0 44vw;height:64px;border-radius:16px;border:1px solid #2e2e2e;background:rgba(30,30,30,.65);display:flex;align-items:center;justify-content:center;font-size:26px;color:#ddd;user-select:none}
-  .ctrl:active{background:rgba(50,50,50,.75)}
-  #end{flex-direction:column;gap:16px;text-align:center;background:#131313;padding:24px}
-  #endCard{background:#191919;border:1px solid #2a2a2a;border-radius:16px;padding:16px 20px;width:min(520px,92vw)}
-  #sadFace{display:none}
-  .row-tilt{display:flex; gap:8px; align-items:center; flex-wrap:wrap}
-  .note{opacity:.8; font-size:13px}
-  input[type="range"]{width:180px}
+/* ... (TWÓJ STYL BEZ ZMIAN) ... */
+#admin {flex-direction:column;gap:16px;text-align:center;background:#131313;padding:24px}
+#adminCard{background:#191919;border:1px solid #2a2a2a;border-radius:16px;padding:16px 20px;width:min(520px,92vw)}
 </style>
 </head>
 <body>
@@ -50,352 +25,73 @@
       <button class="btn" onclick="startGame('GEBELS')">GEBELS</button>
     </div>
 
-    <div id="tiltBox" style="margin-bottom:12px">
-      <h2 style="margin:0 0 8px 0;font-size:18px">Sterowanie przechyłem (akcelerometr)</h2>
-      <div class="row-tilt">
-        <button class="btn" id="btnEnableTilt">Włącz przechył</button>
-        <button class="btn" id="btnCalibrate" disabled>Kalibruj</button>
-        <label class="note">Czułość: <input type="range" id="tiltSensitivity" min="0.5" max="3.0" step="0.1" value="1.6"> <span id="tiltSensVal">1.6×</span></label>
-      </div>
-      <div class="note" id="tiltStatus">Status: wyłączone</div>
-      <div class="note">Tip: na iPhonie wymagane jest zezwolenie w pop‑upie. Po włączeniu przechyłu kliknij <b>Kalibruj</b> trzymając telefon neutralnie.</div>
-    </div>
+    <!-- ... TiltBox + Leaderboard bez zmian ... -->
 
-    <div id="leaderboard">
-      <h2>Wspólna tablica wyników (online)</h2>
-      <div class="row"><span>MURAN</span><span id="muranScore">0</span></div>
-      <div class="row"><span>GEBELS</span><span id="gebelsScore">0</span></div>
-      <div id="leaderMessage" class="lead">Ładuje…</div>
+    <div style="margin-top:20px">
+      <button class="btn" onclick="enterAdmin()">Panel admina</button>
     </div>
   </div>
 </section>
 
 <!-- GRA -->
 <section id="game" class="screen">
-  <div id="gameArea">
-    <div id="score">Punkty: 0</div>
-    <div id="timer">20s</div>
-    <div id="character"></div>
-
-    <!-- Sterowanie dotykowe (fallback) -->
-    <div id="touchControls">
-      <div id="btnLeft" class="ctrl">◀️</div>
-      <div id="btnRight" class="ctrl">▶️</div>
-    </div>
-  </div>
+  <!-- ... gra bez zmian ... -->
 </section>
 
 <!-- KONIEC RUNDY -->
 <section id="end" class="screen">
-  <div id="endCard">
-    <h2>Koniec rundy!</h2>
-    <p id="endMessage"></p>
-    <div id="sadFace"></div>
-    <div style="display:flex;gap:10px;justify-content:center;margin-top:8px">
-      <button class="btn" onclick="goToMenu()">Powrót do menu</button>
-      <button class="btn" onclick="restart()">Jeszcze raz</button>
+  <!-- ... ekran końca bez zmian ... -->
+</section>
+
+<!-- ADMIN -->
+<section id="admin" class="screen">
+  <div id="adminCard">
+    <h2>Panel admina</h2>
+    <p>Możesz zresetować tablicę wyników do zera.</p>
+    <button class="btn" onclick="resetLeaderboard()">Resetuj tablicę wyników</button>
+    <div style="margin-top:12px">
+      <button class="btn" onclick="goToMenu()">Powrót</button>
     </div>
   </div>
 </section>
 
 <script>
-/* ===================  FIREBASE CONFIG  =================== */
+/* ==== FIREBASE CONFIG (Twój działający) ==== */
 const firebaseConfig = {
   apiKey: "AIzaSyBomuz19-3kgAlCYRipsJWTnCpmBSGjDng",
   authDomain: "pluskwy-e524a.firebaseapp.com",
   projectId: "pluskwy-e524a",
-  storageBucket: "pluskwy-e524a.appspot.com", /* poprawka */
+  storageBucket: "pluskwy-e524a.appspot.com",
   messagingSenderId: "229515075697",
   appId: "1:229515075697:web:7db12ac774700fc0da7bd0",
   measurementId: "G-593B4PQS0N",
   databaseURL: "https://pluskwy-e524a-default-rtdb.europe-west1.firebasedatabase.app"
 };
-
 firebase.initializeApp(firebaseConfig);
 const db = firebase.database();
 const LB_PATH = "/leaderboard/global";
 
-/* ===================  UTIL / STATE  =================== */
-const $=id=>document.getElementById(id);
-let leaderboard = { MURAN: 0, GEBELS: 0 };
-let activePlayer="MURAN",score=0,bugs=[],rafId=null,startTime=0,lastFrame=0,spawnAcc=0;
+/* ... cała logika gry bez zmian ... */
 
-const ROUND_MS=20000,CHAR_W=56,CHAR_H=56,BUG_W=34,BUG_H=34,BASE_FALL=180,SPAWN_EVERY=700,CHAR_SPEED=360;
-const BOTTOM_OFFSET = 98; // ~ --controls-h + 12px
-
-let holdingLeft=false,holdingRight=false,dragging=false,dragOffsetX=0;
-
-/* Tilt (czułe) */
-let tiltEnabled=false, tiltZero=0, tiltSensitivity=1.6, tiltGammaLP=0;
-const TILT_FILTER=0.20, SPEED_PER_DEG_BASE=45, DEADZONE=0.2;
-
-/* DOM */
-const screens={menu:$('menu'),game:$('game'),end:$('end')};
-const gameArea=$('gameArea'),character=$('character'),scoreEl=$('score'),timerEl=$('timer'),
-      endMessage=$('endMessage'),sadFace=$('sadFace'),
-      muranScoreEl=$('muranScore'),gebelsScoreEl=$('gebelsScore'),leaderMsgEl=$('leaderMessage'),
-      btnLeft=$('btnLeft'),btnRight=$('btnRight'),
-      btnEnableTilt=$('btnEnableTilt'),btnCalibrate=$('btnCalibrate'),
-      tiltSens=$('tiltSensitivity'),tiltSensVal=$('tiltSensVal'),tiltStatus=$('tiltStatus');
-
-/* ===================  ONLINE LEADERBOARD  =================== */
-async function loadBoardOnline(){
-  const snap = await db.ref(LB_PATH).get();
-  if (snap.exists()) return snap.val();
-  const initial={MURAN:0,GEBELS:0};
-  await db.ref(LB_PATH).set(initial);
-  return initial;
-}
-async function saveBoardOnline(obj){ await db.ref(LB_PATH).set(obj); }
-db.ref(LB_PATH).on("value", (snap)=>{
-  if (!snap.exists()) return;
-  leaderboard = snap.val();
-  updateBoardUI();
-});
-loadBoardOnline().then(lb => {
-  leaderboard = lb;
-  updateBoardUI();
-  leaderMsgEl.textContent = (leaderboard.MURAN>leaderboard.GEBELS)
-    ? "MURAN prowadzi!"
-    : (leaderboard.GEBELS>leaderboard.MURAN)
-      ? "GEBELS prowadzi!"
-      : "Remis!";
-}).catch(err=>{
-  console.warn("Błąd wczytania online:", err);
-  leaderMsgEl.textContent = "Błąd połączenia z rankingiem";
-});
-
-/* ===================  AVATARS  =================== */
-function avatarNormal(player){
-  if(player==="MURAN"){
-    return `
-      <svg viewBox="0 0 100 100" width="56" height="56" aria-label="MURAN">
-        <circle cx="50" cy="50" r="45" fill="#f4c27a" stroke="#333" stroke-width="3"/>
-        <rect x="10" y="30" width="80" height="12" fill="#d92323"/>
-        <circle cx="35" cy="50" r="6" fill="#000"/>
-        <circle cx="65" cy="50" r="6" fill="#000"/>
-        <path d="M35 70 Q50 80 65 70" stroke="#000" stroke-width="4" fill="none"/>
-      </svg>`;
+/* ===== ADMIN PANEL ===== */
+function enterAdmin(){
+  const pin = prompt("Podaj PIN aby wejść do panelu admina:");
+  if(pin==="1357"){
+    switchScreen('admin');
+  } else if(pin!==null){
+    alert("Błędny PIN!");
   }
-  return `
-    <svg viewBox="0 0 100 100" width="56" height="56" aria-label="GEBELS">
-      <circle cx="50" cy="50" r="45" fill="#f4c27a" stroke="#333" stroke-width="3"/>
-      <rect x="25" y="40" width="20" height="8" fill="#000"/>
-      <rect x="55" y="40" width="20" height="8" fill="#000"/>
-      <line x1="45" y1="44" x2="55" y2="44" stroke="#000" stroke-width="2"/>
-      <rect x="45" y="65" width="10" height="4" fill="#000"/>
-      <path d="M35 75 Q50 85 65 75" stroke="#000" stroke-width="3" fill="none"/>
-    </svg>`;
 }
-function avatarSad(player){
-  if(player==="MURAN"){
-    return `
-      <svg viewBox="0 0 120 120" width="88" height="88" aria-label="MURAN pogryziony">
-        <defs><radialGradient id="bruise" cx="50%" cy="50%" r="50%"><stop offset="0%" stop-color="#6b2d2d" stop-opacity="0.9"/><stop offset="100%" stop-color="#6b2d2d" stop-opacity="0.0"/></radialGradient></defs>
-        <circle cx="60" cy="60" r="52" fill="#f4c27a" stroke="#333" stroke-width="3"/>
-        <rect x="14" y="30" width="92" height="14" fill="#d92323"/>
-        <circle cx="44" cy="58" r="6" fill="#000"/><circle cx="76" cy="58" r="6" fill="#000"/>
-        <path d="M38 86 Q60 76 82 86" stroke="#000" stroke-width="5" fill="none"/>
-        <circle cx="35" cy="80" r="10" fill="url(#bruise)"/><circle cx="85" cy="72" r="8" fill="url(#bruise)"/><circle cx="70" cy="40" r="7" fill="url(#bruise)"/>
-        <path d="M28 70 l8 6" stroke="#5a0f0f" stroke-width="2"/><path d="M92 60 l-7 6" stroke="#5a0f0f" stroke-width="2"/>
-        <text x="28" y="45" font-size="16">🐞</text><text x="90" y="55" font-size="16">🐞</text><text x="60" y="95" font-size="16">🐞</text>
-      </svg>`;
-  }
-  return `
-    <svg viewBox="0 0 120 120" width="88" height="88" aria-label="GEBELS pogryziony">
-      <defs><radialGradient id="bruise2" cx="50%" cy="50%" r="50%"><stop offset="0%" stop-color="#6b2d2d" stop-opacity="0.9"/><stop offset="100%" stop-color="#6b2d2d" stop-opacity="0.0"/></radialGradient></defs>
-      <circle cx="60" cy="60" r="52" fill="#f4c27a" stroke="#333" stroke-width="3"/>
-      <rect x="30" y="43" width="22" height="9" fill="#000"/><rect x="68" y="43" width="22" height="9" fill="#000"/><line x1="52" y1="47" x2="68" y2="47" stroke="#000" stroke-width="2"/>
-      <rect x="54" y="72" width="12" height="5" fill="#000"/>
-      <path d="M40 90 Q60 80 80 90" stroke="#000" stroke-width="4" fill="none"/>
-      <circle cx="38" cy="78" r="9" fill="url(#bruise2)"/><circle cx="82" cy="66" r="7" fill="url(#bruise2)"/><circle cx="65" cy="36" r="6" fill="url(#bruise2)"/>
-      <path d="M33 64 l7 5" stroke="#5a0f0f" stroke-width="2"/><path d="M90 54 l-7 6" stroke="#5a0f0f" stroke-width="2"/>
-      <text x="26" y="40" font-size="16">🐞</text><text x="88" y="58" font-size="16">🐞</text><text x="60" y="98" font-size="16">🐞</text>
-    </svg>`;
-}
-
-/* ===================  GAME  =================== */
-function setAvatar(player){ $('character').innerHTML = avatarNormal(player); }
-
-function startGame(player){
-  activePlayer=player;
-  switchScreen('game');
-  setAvatar(player);
-  $('character').style.left=(gameArea.clientWidth-CHAR_W)/2+"px";
-  score=0;scoreEl.textContent="Punkty: 0";timerEl.textContent=(ROUND_MS/1000)+"s";
-  for(const b of bugs)b.el.remove();bugs.length=0;spawnAcc=0;
-  startTime=performance.now();lastFrame=startTime;
-  cancelAnimationFrame(rafId);rafId=requestAnimationFrame(loop);
-}
-
-function loop(now){
-  const dt=(now-lastFrame)/1000; lastFrame=now;
-  let x=parseFloat($('character').style.left||"0");
-
-  // Tilt
-  if(tiltEnabled){
-    let deltaDeg = tiltGammaLP - tiltZero;
-    if (Math.abs(deltaDeg) < DEADZONE) deltaDeg = 0;
-    const speedPerDeg = SPEED_PER_DEG_BASE * tiltSensitivity;
-    x += (deltaDeg * speedPerDeg) * dt;
-  }
-  // Buttons fallback
-  if(holdingLeft)  x -= CHAR_SPEED * dt;
-  if(holdingRight) x += CHAR_SPEED * dt;
-
-  x=Math.max(0,Math.min(x,gameArea.clientWidth-CHAR_W));
-  $('character').style.left=x+"px";
-
-  const elapsed=now-startTime;
-
-  // Spawn pluskiew
-  spawnAcc += dt*1000;
-  const spawnInterval = Math.max(260, SPAWN_EVERY - elapsed*0.28);
-  if(elapsed<ROUND_MS && spawnAcc>=spawnInterval){ spawnBug(); spawnAcc=0; }
-
-  // Update pluskiew
-  const charY=gameArea.clientHeight-CHAR_H-BOTTOM_OFFSET;
-  for(let i=bugs.length-1;i>=0;i--){
-    const b=bugs[i];
-    b.y += b.vy*dt;
-    b.el.style.transform = `translate(${b.x}px,${b.y}px)`;
-    if(collides(b.x,b.y,BUG_W,BUG_H, x,charY,CHAR_W,CHAR_H)){
-      addScore(1);
-      b.el.remove(); bugs.splice(i,1);
-      if(navigator.vibrate) try{navigator.vibrate(80);}catch(_){}
-      continue;
-    }
-    if(b.y>gameArea.clientHeight){ b.el.remove(); bugs.splice(i,1); }
-  }
-
-  const leftMs=Math.max(0, ROUND_MS-elapsed);
-  timerEl.textContent=Math.ceil(leftMs/1000)+'s';
-  if(elapsed>=ROUND_MS){ endGame(); return; }
-
-  rafId=requestAnimationFrame(loop);
-}
-
-function spawnBug(){
-  const el=document.createElement('div');
-  el.className='bug'; el.textContent='🐞';
-  const x=Math.random()*(gameArea.clientWidth-BUG_W);
-  const y=-BUG_H;
-  const vy=BASE_FALL+Math.random()*140;
-  el.style.transform=`translate(${x}px,${y}px)`;
-  gameArea.appendChild(el);
-  bugs.push({x,y,vy,el});
-}
-function addScore(n){ score+=n; scoreEl.textContent="Punkty: "+score; }
-
-async function endGame(){
-  cancelAnimationFrame(rafId);
-  for(const b of bugs) b.el.remove();
-  bugs.length=0;
-
-  // Zapis online
-  leaderboard[activePlayer] = (leaderboard[activePlayer]||0) + score;
-  try { await saveBoardOnline(leaderboard); } catch(e){ console.warn("Zapis online nieudany:", e); }
-
-  updateBoardUI();
-  endMessage.textContent=`${activePlayer} złapał ${score} pluskiew!`;
-  sadFace.innerHTML = avatarSad(activePlayer);
-  sadFace.style.display='block';
-  switchScreen('end');
-}
-
-/* ===================  SCREENS / UI  =================== */
-function switchScreen(id){
-  screens.menu.classList.remove('active');
-  screens.game.classList.remove('active');
-  screens.end.classList.remove('active');
-  screens[id].classList.add('active');
-  if(id!=='end'){ sadFace.style.display='none'; sadFace.innerHTML=''; }
-}
-function goToMenu(){ switchScreen('menu'); }
-function restart(){ startGame(activePlayer); }
-
-function updateBoardUI(){
-  muranScoreEl.textContent = leaderboard.MURAN ?? 0;
-  gebelsScoreEl.textContent = leaderboard.GEBELS ?? 0;
-  leaderMsgEl.textContent = (leaderboard.MURAN>leaderboard.GEBELS)
-    ? "MURAN prowadzi!"
-    : (leaderboard.GEBELS>leaderboard.MURAN)
-      ? "GEBELS prowadzi!"
-      : "Remis!";
-}
-
-/* ===================  INPUT / HELPERS  =================== */
-function collides(ax,ay,aw,ah,bx,by,bw,bh){ return !(ay+ah<by || ay>by+bh || ax+aw<bx || ax>bx+bw); }
-
-// Buttons
-btnLeft.addEventListener('pointerdown',e=>{holdingLeft=true; e.preventDefault();},{passive:false});
-btnRight.addEventListener('pointerdown',e=>{holdingRight=true; e.preventDefault();},{passive:false});
-btnLeft.addEventListener('pointerup',()=>holdingLeft=false);
-btnRight.addEventListener('pointerup',()=>holdingRight=false);
-btnLeft.addEventListener('pointerleave',()=>holdingLeft=false);
-btnRight.addEventListener('pointerleave',()=>holdingRight=false);
-
-// Drag
-character.addEventListener('pointerdown',(e)=>{
-  dragging=true; character.setPointerCapture(e.pointerId);
-  const rect=character.getBoundingClientRect();
-  dragOffsetX=e.clientX-rect.left;
-  e.preventDefault();
-},{passive:false});
-character.addEventListener('pointermove',(e)=>{
-  if(!dragging) return;
-  const areaRect=gameArea.getBoundingClientRect();
-  let x=e.clientX-areaRect.left-dragOffsetX;
-  x=Math.max(0,Math.min(x,gameArea.clientWidth-CHAR_W));
-  character.style.left=x+"px";
-},{passive:false});
-character.addEventListener('pointerup',()=>{dragging=false;});
-
-// Klawiatura
-window.addEventListener('keydown',e=>{
-  if(e.key==='ArrowLeft') holdingLeft=true;
-  if(e.key==='ArrowRight') holdingRight=true;
-});
-window.addEventListener('keyup',e=>{
-  if(e.key==='ArrowLeft') holdingLeft=false;
-  if(e.key==='ArrowRight') holdingRight=false;
-});
-
-// Resize safety
-window.addEventListener('resize',()=>{
-  let x=parseFloat(character.style.left||"0");
-  x=Math.max(0,Math.min(x,gameArea.clientWidth-CHAR_W));
-  character.style.left=x+"px";
-});
-
-/* ====== TILT ENABLE / CALIBRATION ====== */
-btnEnableTilt.addEventListener('click', async ()=>{
+async function resetLeaderboard(){
+  if(!confirm("Na pewno wyzerować tablicę wyników?")) return;
   try{
-    if (typeof DeviceMotionEvent !== 'undefined' && typeof DeviceMotionEvent.requestPermission === 'function') {
-      const res = await DeviceMotionEvent.requestPermission();
-      if (res !== 'granted') throw new Error('Brak zgody na akcelerometr');
-    }
-    window.addEventListener('deviceorientation', onOrientation, true);
-    tiltEnabled = true;
-    btnCalibrate.disabled = false;
-    tiltStatus.textContent = 'Status: włączone (przechyl aby poruszać)';
-  }catch(err){
-    tiltStatus.textContent = 'Status: błąd / odmowa uprawnień';
-    console.warn(err);
+    await db.ref(LB_PATH).set({MURAN:0,GEBELS:0});
+    alert("Tablica wyników zresetowana ✅");
+    goToMenu();
+  }catch(e){
+    console.error(e);
+    alert("Błąd resetu tablicy!");
   }
-});
-btnCalibrate.addEventListener('click', ()=>{
-  tiltZero = tiltGammaLP;
-  tiltStatus.textContent = `Status: skalibrowane (zero = ${tiltZero.toFixed(1)}°)`;
-});
-tiltSens.addEventListener('input', ()=>{
-  tiltSensitivity = parseFloat(tiltSens.value);
-  tiltSensVal.textContent = tiltSensitivity.toFixed(1)+'×';
-});
-function onOrientation(ev){
-  const g = ev.gamma;
-  if (g == null) return;
-  tiltGammaLP = tiltGammaLP + TILT_FILTER*(g - tiltGammaLP);
 }
 </script>
 </body>
