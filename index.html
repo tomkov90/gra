@@ -3,23 +3,26 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no" />
-<title>Łapanie Pluskwy</title>
+<title>Łapanie Pluskwy — Tilt + Mobile</title>
 <style>
-  body,html{margin:0;height:100%;background:#111;color:#fff;font-family:sans-serif;overflow:hidden}
+  :root{
+    --controls-h: 86px; /* wysokość strefy przycisków + margines */
+  }
+  html,body{margin:0;height:100%;background:#111;color:#fff;font-family:system-ui,Segoe UI,Roboto,Arial;overflow:hidden}
   .screen{display:none;height:100%;width:100%;}
   .active{display:flex;align-items:center;justify-content:center;}
-  #menu{flex-direction:column;gap:16px;text-align:center}
-  .btn{background:#2a2a2a;color:#fff;border:0;border-radius:14px;padding:14px 18px;font-size:18px;cursor:pointer}
+  #menu{flex-direction:column;gap:16px;text-align:center;padding:16px}
+  .btn{background:#2a2a2a;color:#fff;border:0;border-radius:14px;padding:12px 16px;font-size:16px;cursor:pointer}
   .btn:active{transform:scale(.98)}
   #leaderboard{background:#191919;border:1px solid #2a2a2a;border-radius:16px;padding:12px 16px;width:min(520px,92vw);text-align:left;margin-top:12px}
   #leaderboard h2{margin:6px 0 10px 0;font-size:20px}
   .row{display:flex;justify-content:space-between;padding:6px 0;font-size:18px}
   .lead{margin-top:8px;font-weight:600;color:#4ade80}
-  #game{position:relative}
+  #tiltBox{background:#191919;border:1px solid #2a2a2a;border-radius:16px;padding:12px 16px;width:min(520px,92vw); text-align:left}
   #gameArea{position:relative;width:100vw;height:100vh;overflow:hidden;background:radial-gradient(ellipse at top,#181818,#0e0e0e)}
   #score,#timer{position:absolute;top:8px;padding:8px 12px;border-radius:12px;background:rgba(0,0,0,.35);font-weight:700;font-size:16px;border:1px solid #2a2a2a}
   #score{left:10px;}#timer{right:10px;}
-  #character{position:absolute;bottom:20px;width:56px;height:56px;user-select:none;touch-action:none}
+  #character{position:absolute;bottom:calc(var(--controls-h) + 12px);width:56px;height:56px;user-select:none;touch-action:none}
   .bug{position:absolute;width:34px;height:34px;font-size:28px;pointer-events:none}
   #touchControls{position:absolute;bottom:10px;left:0;right:0;display:flex;gap:10px;justify-content:center}
   .ctrl{flex:0 0 44vw;height:64px;border-radius:16px;border:1px solid #2e2e2e;background:rgba(30,30,30,.65);display:flex;align-items:center;justify-content:center;font-size:26px;color:#ddd;user-select:none}
@@ -27,6 +30,9 @@
   #end{flex-direction:column;gap:16px;text-align:center;background:#131313;padding:24px}
   #endCard{background:#191919;border:1px solid #2a2a2a;border-radius:16px;padding:16px 20px;width:min(520px,92vw)}
   #sadFace{display:none}
+  .row-tilt{display:flex; gap:8px; align-items:center; flex-wrap:wrap}
+  .note{opacity:.8; font-size:13px}
+  input[type="range"]{width:180px}
 </style>
 </head>
 <body>
@@ -35,11 +41,23 @@
 <section id="menu" class="screen active">
   <div>
     <h1>Łap Pluskwy!</h1>
-    <p>Wybierz swoją postać i łap 🐞 przez 20 sekund.</p>
-    <div style="display:flex;gap:10px;justify-content:center;flex-wrap:wrap;margin:12px 0 18px">
+    <p>Wybierz postać i łap 🐞 przez 20 sekund.</p>
+    <div style="display:flex;gap:10px;justify-content:center;flex-wrap:wrap;margin:8px 0 12px">
       <button class="btn" onclick="startGame('MURAN')">MURAN</button>
       <button class="btn" onclick="startGame('GEBELS')">GEBELS</button>
     </div>
+
+    <div id="tiltBox" style="margin-bottom:12px">
+      <h2 style="margin:0 0 8px 0;font-size:18px">Sterowanie przechyłem (akcelerometr)</h2>
+      <div class="row-tilt">
+        <button class="btn" id="btnEnableTilt">Włącz przechył</button>
+        <button class="btn" id="btnCalibrate" disabled>Kalibruj</button>
+        <label class="note">Czułość: <input type="range" id="tiltSensitivity" min="0.5" max="3.0" step="0.1" value="1.6"> <span id="tiltSensVal">1.6×</span></label>
+      </div>
+      <div class="note" id="tiltStatus">Status: wyłączone</div>
+      <div class="note">Tip: na iPhonie wymagane jest zezwolenie w pop‑upie. Po włączeniu przechyłu kliknij <b>Kalibruj</b> trzymając telefon neutralnie.</div>
+    </div>
+
     <div id="leaderboard">
       <h2>Tablica wyników</h2>
       <div class="row"><span>MURAN</span><span id="muranScore">0</span></div>
@@ -56,7 +74,7 @@
     <div id="timer">20s</div>
     <div id="character"></div>
 
-    <!-- Sterowanie dotykowe -->
+    <!-- Sterowanie dotykowe (fallback) -->
     <div id="touchControls">
       <div id="btnLeft" class="ctrl">◀️</div>
       <div id="btnRight" class="ctrl">▶️</div>
@@ -78,24 +96,45 @@
 </section>
 
 <script>
-/* ========== UTIL / STATE ========== */
+/* ====== UTIL / STATE ====== */
 const $=id=>document.getElementById(id);
-const LS_KEY="pluskwy_board_v4";
+const LS_KEY="pluskwy_board_tilt_v2";
 let leaderboard=loadBoard(),activePlayer="MURAN",score=0,bugs=[],rafId=null,startTime=0,lastFrame=0,spawnAcc=0;
 const ROUND_MS=20000,CHAR_W=56,CHAR_H=56,BUG_W=34,BUG_H=34,BASE_FALL=180,SPAWN_EVERY=700,CHAR_SPEED=360;
+const BOTTOM_OFFSET = (()=>{ // piksele odpowiadające bottom postaci (z CSS var)
+  // var(--controls-h) + 12px ~ 98px; ale oblicz dynamicznie:
+  const controlsH = 86; // trzymaj w sync z :root --controls-h (fallback)
+  return controlsH + 12;
+})();
+
 let holdingLeft=false,holdingRight=false,dragging=false,dragOffsetX=0;
 
-/* DOM */
+/* Tilt control — bardziej czułe */
+let tiltEnabled=false;
+let tiltZero=0;                   // kalibracja (deg)
+let tiltSensitivity=1.6;          // mnożnik
+let tiltGammaLP=0;                // low-pass gamma
+const TILT_FILTER=0.20;           // szybsza reakcja (0..1)
+const SPEED_PER_DEG_BASE=45;      // px/s na 1° (bazowo dość czułe)
+const DEADZONE=0.2;               // minimalny kąt odchylenia (deg)
+
+/* ====== DOM ====== */
 const screens={menu:$('menu'),game:$('game'),end:$('end')};
 const gameArea=$('gameArea'),character=$('character'),scoreEl=$('score'),timerEl=$('timer'),
       endMessage=$('endMessage'),sadFace=$('sadFace'),
       muranScoreEl=$('muranScore'),gebelsScoreEl=$('gebelsScore'),leaderMsgEl=$('leaderMessage'),
       btnLeft=$('btnLeft'),btnRight=$('btnRight');
 
-/* Init */
+const btnEnableTilt=$('btnEnableTilt');
+const btnCalibrate=$('btnCalibrate');
+const tiltSens=$('tiltSensitivity');
+const tiltSensVal=$('tiltSensVal');
+const tiltStatus=$('tiltStatus');
+
+/* ====== INIT ====== */
 updateBoardUI();
 
-/* ========== AVATARS (OK) ========== */
+/* ====== AVATARS ====== */
 function avatarNormal(player){
   if(player==="MURAN"){
     return `
@@ -107,7 +146,6 @@ function avatarNormal(player){
         <path d="M35 70 Q50 80 65 70" stroke="#000" stroke-width="4" fill="none"/>
       </svg>`;
   }
-  // GEBELS
   return `
     <svg viewBox="0 0 100 100" width="56" height="56" aria-label="GEBELS">
       <circle cx="50" cy="50" r="45" fill="#f4c27a" stroke="#333" stroke-width="3"/>
@@ -118,66 +156,34 @@ function avatarNormal(player){
       <path d="M35 75 Q50 85 65 75" stroke="#000" stroke-width="3" fill="none"/>
     </svg>`;
 }
-
 function avatarSad(player){
   if(player==="MURAN"){
     return `
       <svg viewBox="0 0 120 120" width="88" height="88" aria-label="MURAN pogryziony">
-        <defs>
-          <radialGradient id="bruise" cx="50%" cy="50%" r="50%">
-            <stop offset="0%" stop-color="#6b2d2d" stop-opacity="0.9"/>
-            <stop offset="100%" stop-color="#6b2d2d" stop-opacity="0.0"/>
-          </radialGradient>
-        </defs>
+        <defs><radialGradient id="bruise" cx="50%" cy="50%" r="50%"><stop offset="0%" stop-color="#6b2d2d" stop-opacity="0.9"/><stop offset="100%" stop-color="#6b2d2d" stop-opacity="0.0"/></radialGradient></defs>
         <circle cx="60" cy="60" r="52" fill="#f4c27a" stroke="#333" stroke-width="3"/>
         <rect x="14" y="30" width="92" height="14" fill="#d92323"/>
-        <!-- oczy zapłakane -->
-        <circle cx="44" cy="58" r="6" fill="#000"/>
-        <circle cx="76" cy="58" r="6" fill="#000"/>
-        <path d="M38 86 Q60 76 82 86" stroke="#000" stroke-width="5" fill="none"/> <!-- smutny uśmiech odwrotnie -->
-        <!-- ślady pogryzień -->
-        <circle cx="35" cy="80" r="10" fill="url(#bruise)"/>
-        <circle cx="85" cy="72" r="8" fill="url(#bruise)"/>
-        <circle cx="70" cy="40" r="7" fill="url(#bruise)"/>
-        <!-- malutkie ranki -->
-        <path d="M28 70 l8 6" stroke="#5a0f0f" stroke-width="2"/>
-        <path d="M92 60 l-7 6" stroke="#5a0f0f" stroke-width="2"/>
-        <!-- pluskwy -->
-        <text x="28" y="45" font-size="16">🐞</text>
-        <text x="90" y="55" font-size="16">🐞</text>
-        <text x="60" y="95" font-size="16">🐞</text>
+        <circle cx="44" cy="58" r="6" fill="#000"/><circle cx="76" cy="58" r="6" fill="#000"/>
+        <path d="M38 86 Q60 76 82 86" stroke="#000" stroke-width="5" fill="none"/>
+        <circle cx="35" cy="80" r="10" fill="url(#bruise)"/><circle cx="85" cy="72" r="8" fill="url(#bruise)"/><circle cx="70" cy="40" r="7" fill="url(#bruise)"/>
+        <path d="M28 70 l8 6" stroke="#5a0f0f" stroke-width="2"/><path d="M92 60 l-7 6" stroke="#5a0f0f" stroke-width="2"/>
+        <text x="28" y="45" font-size="16">🐞</text><text x="90" y="55" font-size="16">🐞</text><text x="60" y="95" font-size="16">🐞</text>
       </svg>`;
   }
-  // GEBELS sad
   return `
     <svg viewBox="0 0 120 120" width="88" height="88" aria-label="GEBELS pogryziony">
-      <defs>
-        <radialGradient id="bruise2" cx="50%" cy="50%" r="50%">
-          <stop offset="0%" stop-color="#6b2d2d" stop-opacity="0.9"/>
-          <stop offset="100%" stop-color="#6b2d2d" stop-opacity="0.0"/>
-        </radialGradient>
-      </defs>
+      <defs><radialGradient id="bruise2" cx="50%" cy="50%" r="50%"><stop offset="0%" stop-color="#6b2d2d" stop-opacity="0.9"/><stop offset="100%" stop-color="#6b2d2d" stop-opacity="0.0"/></radialGradient></defs>
       <circle cx="60" cy="60" r="52" fill="#f4c27a" stroke="#333" stroke-width="3"/>
-      <rect x="30" y="43" width="22" height="9" fill="#000"/>
-      <rect x="68" y="43" width="22" height="9" fill="#000"/>
-      <line x1="52" y1="47" x2="68" y2="47" stroke="#000" stroke-width="2"/>
-      <rect x="54" y="72" width="12" height="5" fill="#000"/> <!-- wąsik -->
-      <!-- smutny łuk -->
+      <rect x="30" y="43" width="22" height="9" fill="#000"/><rect x="68" y="43" width="22" height="9" fill="#000"/><line x1="52" y1="47" x2="68" y2="47" stroke="#000" stroke-width="2"/>
+      <rect x="54" y="72" width="12" height="5" fill="#000"/>
       <path d="M40 90 Q60 80 80 90" stroke="#000" stroke-width="4" fill="none"/>
-      <!-- pogryzienia -->
-      <circle cx="38" cy="78" r="9" fill="url(#bruise2)"/>
-      <circle cx="82" cy="66" r="7" fill="url(#bruise2)"/>
-      <circle cx="65" cy="36" r="6" fill="url(#bruise2)"/>
-      <path d="M33 64 l7 5" stroke="#5a0f0f" stroke-width="2"/>
-      <path d="M90 54 l-7 6" stroke="#5a0f0f" stroke-width="2"/>
-      <!-- pluskwy -->
-      <text x="26" y="40" font-size="16">🐞</text>
-      <text x="88" y="58" font-size="16">🐞</text>
-      <text x="60" y="98" font-size="16">🐞</text>
+      <circle cx="38" cy="78" r="9" fill="url(#bruise2)"/><circle cx="82" cy="66" r="7" fill="url(#bruise2)"/><circle cx="65" cy="36" r="6" fill="url(#bruise2)"/>
+      <path d="M33 64 l7 5" stroke="#5a0f0f" stroke-width="2"/><path d="M90 54 l-7 6" stroke="#5a0f0f" stroke-width="2"/>
+      <text x="26" y="40" font-size="16">🐞</text><text x="88" y="58" font-size="16">🐞</text><text x="60" y="98" font-size="16">🐞</text>
     </svg>`;
 }
 
-/* ========== GAME ========== */
+/* ====== GAME ====== */
 function setAvatar(player){ character.innerHTML = avatarNormal(player); }
 
 function startGame(player){
@@ -192,26 +198,38 @@ function startGame(player){
 }
 
 function loop(now){
-  const dt=(now-lastFrame)/1000;lastFrame=now;
+  const dt=(now-lastFrame)/1000; lastFrame=now;
   let x=parseFloat(character.style.left||"0");
-  if(holdingLeft)x-=CHAR_SPEED*dt;
-  if(holdingRight)x+=CHAR_SPEED*dt;
-  x=Math.max(0,Math.min(x,gameArea.clientWidth-CHAR_W));
-  character.style.left=x+"px";
+
+  // TILT (bardziej czułe, z deadzone)
+  if(tiltEnabled){
+    let deltaDeg = tiltGammaLP - tiltZero;
+    if (Math.abs(deltaDeg) < DEADZONE) deltaDeg = 0;
+    const speedPerDeg = SPEED_PER_DEG_BASE * tiltSensitivity; // px/s per deg
+    x += (deltaDeg * speedPerDeg) * dt;
+  }
+
+  // Fallback: przyciski
+  if(holdingLeft)  x -= CHAR_SPEED * dt;
+  if(holdingRight) x += CHAR_SPEED * dt;
+
+  x = Math.max(0, Math.min(x, gameArea.clientWidth-CHAR_W));
+  character.style.left = x + "px";
 
   const elapsed=now-startTime;
-  // spawn
-  spawnAcc+=dt*1000;
-  const spawnInterval=Math.max(280,SPAWN_EVERY-elapsed*0.25);
+
+  // Spawn pluskiew (coraz szybciej)
+  spawnAcc += dt*1000;
+  const spawnInterval = Math.max(260, SPAWN_EVERY - elapsed*0.28); // lekko szybciej
   if(elapsed<ROUND_MS && spawnAcc>=spawnInterval){ spawnBug(); spawnAcc=0; }
 
-  // update bugs
-  const charY=gameArea.clientHeight-CHAR_H-20;
+  // Update pluskiew
+  const charY=gameArea.clientHeight-CHAR_H-BOTTOM_OFFSET;
   for(let i=bugs.length-1;i>=0;i--){
     const b=bugs[i];
-    b.y+=b.vy*dt;
-    b.el.style.transform=`translate(${b.x}px,${b.y}px)`;
-    if(collides(b.x,b.y,BUG_W,BUG_H,x,charY,CHAR_W,CHAR_H)){
+    b.y += b.vy*dt;
+    b.el.style.transform = `translate(${b.x}px,${b.y}px)`;
+    if(collides(b.x,b.y,BUG_W,BUG_H, x,charY,CHAR_W,CHAR_H)){
       addScore(1);
       b.el.remove(); bugs.splice(i,1);
       if(navigator.vibrate) try{navigator.vibrate(80);}catch(_){}
@@ -220,9 +238,9 @@ function loop(now){
     if(b.y>gameArea.clientHeight){ b.el.remove(); bugs.splice(i,1); }
   }
 
-  // timer
-  const leftMs=Math.max(0,ROUND_MS-elapsed);
-  timerEl.textContent=Math.ceil(leftMs/1000)+"s";
+  // Timer
+  const leftMs=Math.max(0, ROUND_MS-elapsed);
+  timerEl.textContent=Math.ceil(leftMs/1000)+'s';
   if(elapsed>=ROUND_MS){ endGame(); return; }
 
   rafId=requestAnimationFrame(loop);
@@ -233,7 +251,7 @@ function spawnBug(){
   el.className='bug'; el.textContent='🐞';
   const x=Math.random()*(gameArea.clientWidth-BUG_W);
   const y=-BUG_H;
-  const vy=BASE_FALL+Math.random()*120;
+  const vy=BASE_FALL+Math.random()*140; // odrobinę szybciej
   el.style.transform=`translate(${x}px,${y}px)`;
   gameArea.appendChild(el);
   bugs.push({x,y,vy,el});
@@ -255,7 +273,7 @@ function endGame(){
   switchScreen('end');
 }
 
-/* ========== SCREENS / UI ========== */
+/* ====== SCREENS / UI ====== */
 function switchScreen(id){
   screens.menu.classList.remove('active');
   screens.game.classList.remove('active');
@@ -276,7 +294,7 @@ function updateBoardUI(){
       : "Remis!";
 }
 
-/* ========== STORAGE ========== */
+/* ====== STORAGE ====== */
 function loadBoard(){
   try{
     const raw=localStorage.getItem(LS_KEY);
@@ -287,11 +305,12 @@ function loadBoard(){
 }
 function saveBoard(){ localStorage.setItem(LS_KEY, JSON.stringify(leaderboard)); }
 
-/* ========== HELPERS / INPUT ========== */
+/* ====== INPUT / HELPERS ====== */
 function collides(ax,ay,aw,ah,bx,by,bw,bh){
   return !(ay+ah<by || ay>by+bh || ax+aw<bx || ax>bx+bw);
 }
 
+// Buttons fallback
 btnLeft.addEventListener('pointerdown',e=>{holdingLeft=true; e.preventDefault();},{passive:false});
 btnRight.addEventListener('pointerdown',e=>{holdingRight=true; e.preventDefault();},{passive:false});
 btnLeft.addEventListener('pointerup',()=>holdingLeft=false);
@@ -299,19 +318,9 @@ btnRight.addEventListener('pointerup',()=>holdingRight=false);
 btnLeft.addEventListener('pointerleave',()=>holdingLeft=false);
 btnRight.addEventListener('pointerleave',()=>holdingRight=false);
 
-window.addEventListener('keydown',e=>{
-  if(e.key==='ArrowLeft') holdingLeft=true;
-  if(e.key==='ArrowRight') holdingRight=true;
-});
-window.addEventListener('keyup',e=>{
-  if(e.key==='ArrowLeft') holdingLeft=false;
-  if(e.key==='ArrowRight') holdingRight=false;
-});
-
-// przeciąganie postaci
+// Drag character
 character.addEventListener('pointerdown',(e)=>{
-  dragging=true;
-  character.setPointerCapture(e.pointerId);
+  dragging=true; character.setPointerCapture(e.pointerId);
   const rect=character.getBoundingClientRect();
   dragOffsetX=e.clientX-rect.left;
   e.preventDefault();
@@ -325,12 +334,56 @@ character.addEventListener('pointermove',(e)=>{
 },{passive:false});
 character.addEventListener('pointerup',()=>{dragging=false;});
 
-// resize
+// Keyboard
+window.addEventListener('keydown',e=>{
+  if(e.key==='ArrowLeft') holdingLeft=true;
+  if(e.key==='ArrowRight') holdingRight=true;
+});
+window.addEventListener('keyup',e=>{
+  if(e.key==='ArrowLeft') holdingLeft=false;
+  if(e.key==='ArrowRight') holdingRight=false;
+});
+
+// Resize safety
 window.addEventListener('resize',()=>{
   let x=parseFloat(character.style.left||"0");
   x=Math.max(0,Math.min(x,gameArea.clientWidth-CHAR_W));
   character.style.left=x+"px";
 });
+
+/* ====== TILT ENABLE / CALIBRATION ====== */
+btnEnableTilt.addEventListener('click', async ()=>{
+  try{
+    if (typeof DeviceMotionEvent !== 'undefined' && typeof DeviceMotionEvent.requestPermission === 'function') {
+      const res = await DeviceMotionEvent.requestPermission();
+      if (res !== 'granted') throw new Error('Brak zgody na akcelerometr');
+    }
+    window.addEventListener('deviceorientation', onOrientation, true);
+    tiltEnabled = true;
+    btnCalibrate.disabled = false;
+    tiltStatus.textContent = 'Status: włączone (przechyl aby poruszać)';
+  }catch(err){
+    tiltStatus.textContent = 'Status: błąd / odmowa uprawnień';
+    console.warn(err);
+  }
+});
+
+btnCalibrate.addEventListener('click', ()=>{
+  tiltZero = tiltGammaLP; // ustaw aktualny przechył jako 0°
+  tiltStatus.textContent = `Status: skalibrowane (zero = ${tiltZero.toFixed(1)}°)`;
+});
+
+tiltSens.addEventListener('input', ()=>{
+  tiltSensitivity = parseFloat(tiltSens.value);
+  tiltSensVal.textContent = tiltSensitivity.toFixed(1)+'×';
+});
+
+// gamma = obrót lewo/prawo (-90..+90)
+function onOrientation(ev){
+  const g = ev.gamma;
+  if (g == null) return;
+  tiltGammaLP = tiltGammaLP + TILT_FILTER*(g - tiltGammaLP);
+}
 </script>
 </body>
 </html>
